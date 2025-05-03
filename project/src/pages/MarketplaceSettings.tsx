@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import Card, { CardHeader, CardContent } from '../ui/Card';
-import Button from '../ui/Button';
-import { Property } from '../../types';
-import { useProperty } from '../../contexts/PropertyContext';
-import { supabase } from '../../lib/supabase';
+import Card, { CardHeader, CardContent } from '../components/ui/Card';
+import Button from '../components/ui/Button';
+import { Property } from '../types';
+import { useProperty } from '../contexts/PropertyContext';
+import { supabase } from '../lib/supabase';
 import { Store, Plus, X, Loader2, Image as ImageIcon, Globe, CheckCircle, Trash } from 'lucide-react';
-import FeatureGuard from '../ui/FeatureGuard';
+import FeatureGuard from '../components/ui/FeatureGuard';
 
 // Common facilities categories
 const COMMON_FACILITIES = {
@@ -39,54 +39,6 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ type, images, onUpload, onDel
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const compressImage = async (file: File): Promise<Blob> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = (event) => {
-        const img = new Image();
-        img.src = event.target?.result as string;
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          const MAX_WIDTH = 1200;
-          const MAX_HEIGHT = 1200;
-          let width = img.width;
-          let height = img.height;
-
-          if (width > height) {
-            if (width > MAX_WIDTH) {
-              height *= MAX_WIDTH / width;
-              width = MAX_WIDTH;
-            }
-          } else {
-            if (height > MAX_HEIGHT) {
-              width *= MAX_HEIGHT / height;
-              height = MAX_HEIGHT;
-            }
-          }
-
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          ctx?.drawImage(img, 0, 0, width, height);
-
-          canvas.toBlob(
-            (blob) => {
-              if (blob) {
-                resolve(blob);
-              } else {
-                reject(new Error('Canvas to Blob conversion failed'));
-              }
-            },
-            'image/jpeg',
-            0.7 // Compression quality (0.7 = 70% quality)
-          );
-        };
-      };
-      reader.onerror = (error) => reject(error);
-    });
-  };
-
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -100,19 +52,16 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ type, images, onUpload, onDel
         throw new Error('Please upload an image file');
       }
 
-      // Compress image
-      const compressedBlob = await compressImage(file);
-      const compressedFile = new File([compressedBlob], file.name, {
-        type: 'image/jpeg',
-      });
+      // Create form data
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('type', type);
 
+      // Get session for authentication
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) throw new Error('Not authenticated');
 
-      const formData = new FormData();
-      formData.append('file', compressedFile);
-      formData.append('type', type);
-
+      // Upload using edge function
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/upload-image`,
         {
