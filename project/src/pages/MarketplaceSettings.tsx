@@ -287,22 +287,74 @@ const MarketplaceSettings: React.FC = () => {
     }
   };
 
-  const handleAddPhoto = (url: string, type: 'common' | 'parking') => {
-    setSettings(prev => ({
-      ...prev,
-      [type === 'common' ? 'common_amenities_photos' : 'parking_amenities_photos']: [
-        ...prev[type === 'common' ? 'common_amenities_photos' : 'parking_amenities_photos'],
-        url
-      ]
-    }));
+  const handleAddPhoto = async (url: string, type: 'common' | 'parking') => {
+    if (!selectedProperty) return;
+
+    try {
+      const updatedPhotos = type === 'common' 
+        ? [...settings.common_amenities_photos, url]
+        : [...settings.parking_amenities_photos, url];
+
+      const updateData = type === 'common'
+        ? { common_amenities_photos: updatedPhotos }
+        : { parking_amenities_photos: updatedPhotos };
+
+      const { error } = await supabase
+        .from('properties')
+        .update({
+          ...updateData,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', selectedProperty.id);
+
+      if (error) throw error;
+
+      setSettings(prev => ({
+        ...prev,
+        ...(type === 'common' 
+          ? { common_amenities_photos: updatedPhotos }
+          : { parking_amenities_photos: updatedPhotos })
+      }));
+    } catch (err) {
+      console.error('Error adding photo:', err);
+      setError('Failed to add photo');
+      throw err;
+    }
   };
 
-  const handleDeletePhoto = (url: string, type: 'common' | 'parking') => {
-    setSettings(prev => ({
-      ...prev,
-      [type === 'common' ? 'common_amenities_photos' : 'parking_amenities_photos']: 
-        prev[type === 'common' ? 'common_amenities_photos' : 'parking_amenities_photos'].filter(p => p !== url)
-    }));
+  const handleDeletePhoto = async (url: string, type: 'common' | 'parking') => {
+    if (!selectedProperty) return;
+
+    try {
+      const updatedPhotos = type === 'common'
+        ? settings.common_amenities_photos.filter(photo => photo !== url)
+        : settings.parking_amenities_photos.filter(photo => photo !== url);
+
+      const updateData = type === 'common'
+        ? { common_amenities_photos: updatedPhotos }
+        : { parking_amenities_photos: updatedPhotos };
+
+      const { error } = await supabase
+        .from('properties')
+        .update({
+          ...updateData,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', selectedProperty.id);
+
+      if (error) throw error;
+
+      setSettings(prev => ({
+        ...prev,
+        ...(type === 'common'
+          ? { common_amenities_photos: updatedPhotos }
+          : { parking_amenities_photos: updatedPhotos })
+      }));
+    } catch (err) {
+      console.error('Error deleting photo:', err);
+      setError('Failed to delete photo');
+      throw err;
+    }
   };
 
   if (!selectedProperty?.id) {
