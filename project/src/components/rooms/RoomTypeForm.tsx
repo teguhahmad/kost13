@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { RoomType } from '../../types';
 import Button from '../ui/Button';
-import { X, ImageIcon, Loader2, Trash } from 'lucide-react';
+import { X, ImageIcon, Loader2, Trash, Upload } from 'lucide-react';
+import imageCompression from 'browser-image-compression';
 
 interface RoomTypeFormProps {
   roomType?: RoomType;
@@ -37,6 +38,10 @@ const RoomTypeForm: React.FC<RoomTypeFormProps> = ({
     photos: roomType?.photos || [],
     max_occupancy: roomType?.max_occupancy || 1
   });
+
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -79,6 +84,101 @@ const RoomTypeForm: React.FC<RoomTypeFormProps> = ({
     }));
   };
 
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setIsUploading(true);
+    setUploadProgress(0);
+
+    try {
+      const uploadedUrls = [];
+      const totalFiles = files.length;
+
+      for (let i = 0; i < totalFiles; i++) {
+        const file = files[i];
+        
+        // Compress image
+        const options = {
+          maxSizeMB: 1,
+          maxWidthOrHeight: 1920,
+          useWebWorker: true,
+          onProgress: (progress: number) => {
+            setUploadProgress((i / totalFiles * 100) + (progress / totalFiles));
+          }
+        };
+
+        const compressedFile = await imageCompression(file, options);
+        
+        // Create form data
+        const formData = new FormData();
+        formData.append('file', compressedFile);
+        formData.append('type', 'room');
+
+        // Upload to Supabase
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/upload-image`,
+          {
+            method: 'POST',
+            body: formData
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error('Failed to upload image');
+        }
+
+        const { url } = await response.json();
+        uploadedUrls.push(url);
+        setUploadProgress(((i + 1) / totalFiles) * 100);
+      }
+
+      // Update form data with new photos
+      setFormData(prev => ({
+        ...prev,
+        photos: [...(prev.photos || []), ...uploadedUrls]
+      }));
+
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    } catch (error) {
+      console.error('Error uploading photos:', error);
+      alert('Failed to upload photos. Please try again.');
+    } finally {
+      setIsUploading(false);
+      setUploadProgress(0);
+    }
+  };
+
+  const handleRemovePhoto = async (url: string) => {
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/upload-image`,
+        {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ url })
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to delete image');
+      }
+
+      setFormData(prev => ({
+        ...prev,
+        photos: prev.photos?.filter(photo => photo !== url) || []
+      }));
+    } catch (error) {
+      console.error('Error removing photo:', error);
+      alert('Failed to remove photo. Please try again.');
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -110,6 +210,99 @@ const RoomTypeForm: React.FC<RoomTypeFormProps> = ({
               />
             </div>
 
+          {/* Photo Upload Section */}
+          <div>
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Foto Kamar</h3>
+            
+            <div className="mb-4">
+              <input
+                type="file"
+                ref={fileInputRef}
+                accept="image/*"
+                multiple
+                onChange={handlePhotoUpload}
+                className="hidden"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
+                icon={isUploading ? <Loader2 className="animate-spin" size={16} /> : <Upload size={16} />}
+              >
+                {isUploading ? 'Mengupload...' : 'Upload Foto'}
+              </Button>
+
+              {isUploading && (
+                <div className="mt-2">
+                  <div className="w-full bg-gray-200 rounded-full h-2.5">
+                    <div 
+                      className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
+                      style={{ width: `${uploadProgress}%` }}
+                    ></div>
+                  </div>
+                  <p className="text-sm text-gray-500 mt-1">
+                    {Math.round(uploadProgress)}% selesai
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+              {formData.photos?.map((url, index) => (
+                <div key={index} className="relative group">
+                  <img
+                    src={url}
+                    alt={`Room type photo ${index + 1}`}
+                    className="w-full h-32 object-cover rounded-lg"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleRemovePhoto(url)}
+                    className="absolute top-2 right-2 p-1 bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <Trash size={16} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+
+          <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Kapasitas Maksimal
+          </label>
+          <select
+            name="max_occupancy"
+            value={formData.max_occupancy}
+            onChange={handleChange}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value={1}>1 Orang</option>
+            <option value={2}>2 Orang</option>
+            <option value={3}>3 Orang</option>
+            <option value={4}>4 Orang</option>
+            <option value={5}>5 Orang</option>
+          </select>
+        </div>
+
+        <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Kapasitas Maksimal
+        </label>
+        <select
+          name="renter_gender"
+          value={formData.renter_gender}
+          onChange={handleChange}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value={1}>Laki-Laki</option>
+          <option value={2}>Perempuan</option>
+          <option value={3}>Campur</option>
+        </select>
+      </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Harga per Bulan
@@ -124,115 +317,97 @@ const RoomTypeForm: React.FC<RoomTypeFormProps> = ({
                 min="0"
               />
             </div>
+          </div>
 
-            <div>
-              <div className="flex items-center mb-2">
-                <input
-                  type="checkbox"
-                  name="enable_daily_price"
-                  checked={formData.enable_daily_price}
-                  onChange={handleCheckboxChange}
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
-                <label className="ml-2 text-sm font-medium text-gray-700">
-                  Aktifkan Harga Harian
-                </label>
-              </div>
-              {formData.enable_daily_price && (
-                <input
-                  type="number"
-                  name="daily_price"
-                  value={formData.daily_price}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  min="0"
-                  placeholder="Harga per hari"
-                />
-              )}
-            </div>
-
-            <div>
-              <div className="flex items-center mb-2">
-                <input
-                  type="checkbox"
-                  name="enable_weekly_price"
-                  checked={formData.enable_weekly_price}
-                  onChange={handleCheckboxChange}
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
-                <label className="ml-2 text-sm font-medium text-gray-700">
-                  Aktifkan Harga Mingguan
-                </label>
-              </div>
-              {formData.enable_weekly_price && (
-                <input
-                  type="number"
-                  name="weekly_price"
-                  value={formData.weekly_price}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  min="0"
-                  placeholder="Harga per minggu"
-                />
-              )}
-            </div>
-
-            <div>
-              <div className="flex items-center mb-2">
-                <input
-                  type="checkbox"
-                  name="enable_yearly_price"
-                  checked={formData.enable_yearly_price}
-                  onChange={handleCheckboxChange}
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
-                <label className="ml-2 text-sm font-medium text-gray-700">
-                  Aktifkan Harga Tahunan
-                </label>
-              </div>
-              {formData.enable_yearly_price && (
-                <input
-                  type="number"
-                  name="yearly_price"
-                  value={formData.yearly_price}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  min="0"
-                  placeholder="Harga per tahun"
-                />
-              )}
-            </div>
-
-            <div className="col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Deskripsi
-              </label>
-              <textarea
-                name="description"
-                value={formData.description}
-                onChange={handleChange}
-                rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          <div>
+            <div className="flex items-center mb-2">
+              <input
+                type="checkbox"
+                name="enable_daily_price"
+                checked={formData.enable_daily_price}
+                onChange={handleCheckboxChange}
+                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
               />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Kapasitas Maksimal
+              <label className="ml-2 text-sm font-medium text-gray-700">
+                Aktifkan Harga Harian
               </label>
-              <select
-                name="max_occupancy"
-                value={formData.max_occupancy}
+            </div>
+            {formData.enable_daily_price && (
+              <input
+                type="number"
+                name="daily_price"
+                value={formData.daily_price}
                 onChange={handleChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value={1}>1 Orang</option>
-                <option value={2}>2 Orang</option>
-                <option value={3}>3 Orang</option>
-                <option value={4}>4 Orang</option>
-                <option value={5}>5 Orang</option>
-              </select>
+                min="0"
+                placeholder="Harga per hari"
+              />
+            )}
+          </div>
+
+          <div>
+            <div className="flex items-center mb-2">
+              <input
+                type="checkbox"
+                name="enable_weekly_price"
+                checked={formData.enable_weekly_price}
+                onChange={handleCheckboxChange}
+                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              <label className="ml-2 text-sm font-medium text-gray-700">
+                Aktifkan Harga Mingguan
+              </label>
             </div>
+            {formData.enable_weekly_price && (
+              <input
+                type="number"
+                name="weekly_price"
+                value={formData.weekly_price}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                min="0"
+                placeholder="Harga per minggu"
+              />
+            )}
+          </div>
+
+          <div>
+            <div className="flex items-center mb-2">
+              <input
+                type="checkbox"
+                name="enable_yearly_price"
+                checked={formData.enable_yearly_price}
+                onChange={handleCheckboxChange}
+                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              <label className="ml-2 text-sm font-medium text-gray-700">
+                Aktifkan Harga Tahunan
+              </label>
+            </div>
+            {formData.enable_yearly_price && (
+              <input
+                type="number"
+                name="yearly_price"
+                value={formData.yearly_price}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                min="0"
+                placeholder="Harga per tahun"
+              />
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Deskripsi
+            </label>
+            <textarea
+              name="description"
+              value={formData.description}
+              onChange={handleChange}
+              rows={3}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
           </div>
 
           <div>
