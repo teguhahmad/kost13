@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
-import { Send, User } from 'lucide-react';
+import { Send, User, Building2 } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import Navigation from '../../components/marketplace/Navigation';
 
@@ -18,9 +18,12 @@ interface ChatUser {
   id: string;
   name: string;
   email: string;
+  role: string;
   last_message?: string;
   last_message_time?: string;
   unread_count?: number;
+  property_name?: string;
+  is_property_owner?: boolean;
 }
 
 const Chat: React.FC = () => {
@@ -31,10 +34,17 @@ const Chat: React.FC = () => {
   const [newMessage, setNewMessage] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentUser, setCurrentUser] = useState<{ id: string; role: string } | null>(null);
 
   useEffect(() => {
-    loadChatUsers();
+    loadCurrentUser();
   }, []);
+
+  useEffect(() => {
+    if (currentUser) {
+      loadChatUsers();
+    }
+  }, [currentUser]);
 
   useEffect(() => {
     if (selectedUser) {
@@ -43,65 +53,139 @@ const Chat: React.FC = () => {
     }
   }, [selectedUser]);
 
-  const loadChatUsers = async () => {
+  const loadCurrentUser = async () => {
     try {
-      setIsLoading(true);
-      setError(null);
-
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         navigate('/marketplace/auth');
         return;
       }
 
-      // Get all chat messages to/from the current user
-      const { data: messages, error: messagesError } = await supabase
+      // Check if user is a tenant or property owner
+      const { data: tenant } = await supabase
+        .from('tenants')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      const { data: property } = await supabase
+        .from('properties')
+        .select('id')
+        .eq('owner_id', user.id)
+        .single();
+
+      setCurrentUser({
+        id: user.id,
+        role: tenant ? 'tenant' : property ? 'owner' : 'unknown'
+      });
+    } catch (err) {
+      console.error('Error loading current user:', err);
+      setError('Failed to load user data');
+    }
+  };
+
+  const loadChatUsers = async () => {
+    if (!currentUser) return;
+
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      let chatUsers: ChatUser[] = [];
+
+      if (currentUser.role === 'tenant') {
+        // Get properties where the user is a tenant
+        const { data: tenancies } = await supabase
+          .from('tenants')
+          .select(`
+            property_id,
+            properties (
+              id,
+              name,
+              owner_id
+            )
+          `)
+          .eq('user_id', currentUser.id);
+
+        if (tenancies && tenancies.length > 0) {
+          const ownerIds = tenancies.map(t => t.properties.owner_id);
+          
+          // Get owner details
+          const { data: session } = await supabase.auth.getSession();
+          if (!session?.session?.access_token) throw new Error('No session found');
+
+          const response = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-user-details`,
+            {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${session.session.access_token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ userIds: ownerIds }),
+            }
+          );
+
+          if (!response.ok) throw new Error('Failed to fetch owner details');
+          const { users: ownerDetails } = await response.json();
+
+          chatUsers = ownerDetails.map((owner: any) => ({
+            id: owner.id,
+            name: owner.name || owner.email,
+            email: owner.email,
+            role: 'owner',
+            property_name: tenancies.find(t => t.properties.owner_id === owner.id)?.properties.name,
+            is_property_owner: true
+          }));
+        }
+      } else if (currentUser.role === 'owner') {
+        // Get tenants from owner's properties
+        const { data: tenants } = await supabase
+          .from('tenants')
+          .select(`
+            id,
+            name,
+            email,
+            user_id,
+            properties (
+              id,
+              name
+            )
+          `)
+          .eq('properties.owner_id', currentUser.id)
+          .eq('status', 'active');
+
+        if (tenants) {
+          chatUsers = tenants.map(tenant => ({
+            id: tenant.user_id,
+            name: tenant.name,
+            email: tenant.email,
+            role: 'tenant',
+            property_name: tenant.properties.name,
+            is_property_owner: false
+          }));
+        }
+      }
+
+      // Get messages for unread count
+      const { data: messages } = await supabase
         .from('chat_messages')
         .select('*')
-        .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
+        .or(`sender_id.eq.${currentUser.id},receiver_id.eq.${currentUser.id}`)
         .order('created_at', { ascending: false });
 
-      if (messagesError) throw messagesError;
-
-      // Get unique user IDs from messages
-      const userIds = new Set([
-        ...messages.map(m => m.sender_id),
-        ...messages.map(m => m.receiver_id)
-      ].filter(id => id !== user.id));
-
-      // Get user details
-      const { data: session } = await supabase.auth.getSession();
-      if (!session?.session?.access_token) throw new Error('No session found');
-
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-user-details`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${session.session.access_token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ userIds: Array.from(userIds) }),
-        }
-      );
-
-      if (!response.ok) throw new Error('Failed to fetch user details');
-      const { users: userDetails } = await response.json();
-
-      // Process users with their last messages
-      const chatUsers: ChatUser[] = userDetails.map((u: any) => {
-        const userMessages = messages.filter(m => 
-          m.sender_id === u.id || m.receiver_id === u.id
-        );
+      chatUsers = chatUsers.map(user => {
+        const userMessages = messages?.filter(m => 
+          m.sender_id === user.id || m.receiver_id === user.id
+        ) || [];
+        
         const lastMessage = userMessages[0];
         const unreadCount = userMessages.filter(m => 
-          m.sender_id === u.id && !m.read
+          m.sender_id === user.id && !m.read
         ).length;
 
         return {
-          id: u.id,
-          name: u.name || u.email,
-          email: u.email,
+          ...user,
           last_message: lastMessage?.content,
           last_message_time: lastMessage?.created_at,
           unread_count: unreadCount
@@ -150,7 +234,6 @@ const Chat: React.FC = () => {
 
       if (error) throw error;
 
-      // Update unread count in users list
       setUsers(prev => prev.map(u => 
         u.id === userId ? { ...u, unread_count: 0 } : u
       ));
@@ -180,7 +263,7 @@ const Chat: React.FC = () => {
 
       setNewMessage('');
       loadMessages(selectedUser.id);
-      loadChatUsers(); // Refresh user list to update last messages
+      loadChatUsers();
     } catch (err) {
       console.error('Error sending message:', err);
       setError('Failed to send message');
@@ -217,7 +300,11 @@ const Chat: React.FC = () => {
                       >
                         <div className="flex items-center">
                           <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                            <User className="w-6 h-6 text-blue-600" />
+                            {user.is_property_owner ? (
+                              <Building2 className="w-6 h-6 text-blue-600" />
+                            ) : (
+                              <User className="w-6 h-6 text-blue-600" />
+                            )}
                           </div>
                           <div className="ml-3 flex-1">
                             <div className="flex items-center justify-between">
@@ -228,8 +315,9 @@ const Chat: React.FC = () => {
                                 </span>
                               ) : null}
                             </div>
+                            <p className="text-sm text-gray-500">{user.property_name}</p>
                             {user.last_message && (
-                              <p className="text-sm text-gray-500 truncate">
+                              <p className="text-sm text-gray-500 truncate mt-1">
                                 {user.last_message}
                               </p>
                             )}
@@ -240,7 +328,9 @@ const Chat: React.FC = () => {
                   </div>
                 ) : (
                   <div className="p-4 text-center text-gray-500">
-                    Belum ada percakapan
+                    {currentUser?.role === 'tenant' 
+                      ? 'Belum ada percakapan dengan pemilik properti'
+                      : 'Belum ada percakapan dengan penyewa'}
                   </div>
                 )}
               </div>
@@ -252,11 +342,17 @@ const Chat: React.FC = () => {
                     <div className="p-4 border-b border-gray-200">
                       <div className="flex items-center">
                         <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                          <User className="w-6 h-6 text-blue-600" />
+                          {selectedUser.is_property_owner ? (
+                            <Building2 className="w-6 h-6 text-blue-600" />
+                          ) : (
+                            <User className="w-6 h-6 text-blue-600" />
+                          )}
                         </div>
                         <div className="ml-3">
                           <p className="font-medium text-gray-900">{selectedUser.name}</p>
-                          <p className="text-sm text-gray-500">{selectedUser.email}</p>
+                          <p className="text-sm text-gray-500">
+                            {selectedUser.is_property_owner ? 'Pemilik' : 'Penyewa'} - {selectedUser.property_name}
+                          </p>
                         </div>
                       </div>
                     </div>
