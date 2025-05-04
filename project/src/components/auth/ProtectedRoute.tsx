@@ -5,7 +5,7 @@ import { Loader2 } from 'lucide-react';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  allowedRoles?: ('superadmin' | 'admin' | 'tenant')[];
+  allowedRoles?: string[];
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles }) => {
@@ -38,17 +38,19 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles 
           .eq('user_id', session.user.id)
           .single();
 
-        const role = backofficeUser?.role || session.user.user_metadata?.role || 'tenant';
-        setUserRole(role);
-
-        // Block access to backoffice for non-superadmin users
-        if (location.pathname.startsWith('/backoffice') && role !== 'superadmin') {
-          navigate('/');
+        // If trying to access backoffice routes but not a backoffice user
+        if (location.pathname.startsWith('/backoffice') && !backofficeUser) {
+          setError('You do not have access to the backoffice');
+          navigate('/login');
           return;
         }
 
+        // Set role based on backoffice role or user metadata
+        const role = backofficeUser?.role || session.user.user_metadata?.role || 'tenant';
+        setUserRole(role);
+
         // Redirect based on role if not allowed
-        if (allowedRoles && !allowedRoles.includes(role as any)) {
+        if (allowedRoles && !allowedRoles.includes(role)) {
           switch (role) {
             case 'superadmin':
               navigate('/backoffice');
