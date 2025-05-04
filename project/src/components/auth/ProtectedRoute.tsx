@@ -1,8 +1,6 @@
-// src/components/auth/ProtectedRoute.tsx
-
 import React, { useState, useEffect } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../../lib/supabase';
 import { Loader2 } from 'lucide-react';
 
 interface ProtectedRouteProps {
@@ -42,6 +40,12 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles 
 
         const role = backofficeUser?.role || session.user.user_metadata?.role || 'tenant';
         setUserRole(role);
+
+        // Block access to backoffice for non-superadmin users
+        if (location.pathname.startsWith('/backoffice') && role !== 'superadmin') {
+          navigate('/');
+          return;
+        }
 
         // Redirect based on role if not allowed
         if (allowedRoles && !allowedRoles.includes(role as any)) {
