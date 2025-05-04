@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Card, { CardHeader, CardContent } from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
@@ -11,6 +12,7 @@ import { supabase } from '../lib/supabase';
 import { useSubscriptionLimits } from '../hooks/useSubscriptionLimits';
 
 const Rooms: React.FC = () => {
+  const navigate = useNavigate();
   const { selectedProperty } = useProperty();
   const [rooms, setRooms] = useState<Room[]>([]);
   const [tenants, setTenants] = useState<Tenant[]>([]);
@@ -333,6 +335,13 @@ const Rooms: React.FC = () => {
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-900">Kamar</h1>
         <div className="flex gap-2">
+          <Button 
+            variant="outline"
+            icon={<Settings size={16} />}
+            onClick={() => navigate('/marketplace-settings')}
+          >
+            Kelola Tipe Kamar
+          </Button>
           <Button 
             icon={<Plus size={16} />} 
             onClick={handleAddRoom}
