@@ -43,7 +43,6 @@ const PropertyDetails: React.FC = () => {
       setIsLoading(true);
       setError(null);
 
-      // Load property details
       const { data: propertyData, error: propertyError } = await supabase
         .from('properties')
         .select('*')
@@ -55,7 +54,6 @@ const PropertyDetails: React.FC = () => {
       if (propertyError) throw propertyError;
       if (!propertyData) throw new Error('Property not found');
 
-      // Load room types
       const { data: roomTypesData, error: roomTypesError } = await supabase
         .from('room_types')
         .select('*')
@@ -155,172 +153,162 @@ const PropertyDetails: React.FC = () => {
           )}
         </div>
 
-        {/* Card Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Property Details */}
-          <div className="lg:col-span-2 space-y-8">
-            {/* Property Overview Card */}
-            <div className="bg-white rounded-xl p-8 shadow-sm">
-              <h1 className="text-3xl font-bold text-gray-900 mb-4">{property.name}</h1>
-              <div className="flex items-center text-gray-600 mb-6">
-                <MapPin size={20} className="mr-2" />
-                <p>{property.address}, {property.city}</p>
-              </div>
-              <p className="text-gray-600 leading-relaxed">{property.description}</p>
-            </div>
+        {/* Property Overview */}
+        <div className="bg-white rounded-xl p-8 shadow-sm mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-4">{property.name}</h1>
+          <div className="flex items-center text-gray-600 mb-6">
+            <MapPin size={20} className="mr-2" />
+            <p>{property.address}, {property.city}</p>
+          </div>
+          <p className="text-gray-600 leading-relaxed">{property.description}</p>
+        </div>
 
-            {/* Common Amenities Card */}
-            <div className="bg-white rounded-xl p-8 shadow-sm">
-              <h2 className="text-xl font-semibold text-gray-900 mb-6">Fasilitas Umum</h2>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                {property.common_amenities?.map((amenity, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center p-4 bg-blue-50 rounded-lg"
-                  >
-                    <CheckCircle size={20} className="text-blue-500 mr-3" />
-                    <span className="text-gray-700">{amenity}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Parking Amenities Card */}
-            {property.parking_amenities && property.parking_amenities.length > 0 && (
-              <div className="bg-white rounded-xl p-8 shadow-sm">
-                <h2 className="text-xl font-semibold text-gray-900 mb-6">Fasilitas Parkir</h2>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {property.parking_amenities?.map((amenity, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center p-4 bg-blue-50 rounded-lg"
-                    >
-                      <CheckCircle size={20} className="text-blue-500 mr-3" />
-                      <span className="text-gray-700">{amenity}</span>
-                    </div>
-                  ))}
+        {/* Room Types */}
+        <div className="space-y-6 mb-8">
+          <h2 className="text-xl font-semibold text-gray-900">Tipe Kamar</h2>
+          {roomTypes.map((roomType) => (
+            <div
+              key={roomType.id}
+              className="bg-white rounded-xl p-8 shadow-sm"
+            >
+              <div className="flex justify-between items-start mb-6">
+                <div>
+                  <h3 className="text-lg font-semibold">{roomType.name}</h3>
+                  <p className="text-gray-600 mt-1">{roomType.description}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-2xl font-bold text-blue-600">
+                    {formatCurrency(roomType.price)}
+                    <span className="text-sm font-normal text-gray-500">/bulan</span>
+                  </p>
+                  {roomType.enable_daily_price && (
+                    <p className="text-sm text-gray-600">
+                      {formatCurrency(roomType.daily_price || 0)}/hari
+                    </p>
+                  )}
+                  {roomType.enable_weekly_price && (
+                    <p className="text-sm text-gray-600">
+                      {formatCurrency(roomType.weekly_price || 0)}/minggu
+                    </p>
+                  )}
+                  {roomType.enable_yearly_price && (
+                    <p className="text-sm text-gray-600">
+                      {formatCurrency(roomType.yearly_price || 0)}/tahun
+                    </p>
+                  )}
                 </div>
               </div>
-            )}
 
-            {/* Room Types */}
-            <div className="space-y-6">
-              <h2 className="text-xl font-semibold text-gray-900">Tipe Kamar</h2>
-              {roomTypes.map((roomType) => (
+              {/* Room Facilities */}
+              <div className="space-y-4">
+                <div className="flex items-center text-gray-700">
+                  <Users size={18} className="mr-2" />
+                  <span>Maksimal {roomType.max_occupancy} orang</span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <h4 className="font-medium text-gray-900 mb-2">Fasilitas Kamar:</h4>
+                    <div className="space-y-2">
+                      {roomType.room_facilities?.map((facility, index) => (
+                        <div key={index} className="flex items-center text-gray-600">
+                          <CheckCircle size={16} className="text-green-500 mr-2" />
+                          {facility}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="font-medium text-gray-900 mb-2">Fasilitas Kamar Mandi:</h4>
+                    <div className="space-y-2">
+                      {roomType.bathroom_facilities?.map((facility, index) => (
+                        <div key={index} className="flex items-center text-gray-600">
+                          <CheckCircle size={16} className="text-green-500 mr-2" />
+                          {facility}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {roomType.photos && roomType.photos.length > 0 && (
+                  <div className="mt-4">
+                    <h4 className="font-medium text-gray-900 mb-2">Foto Kamar:</h4>
+                    <div className="grid grid-cols-4 gap-4">
+                      {roomType.photos.map((photo, index) => (
+                        <img
+                          key={index}
+                          src={photo}
+                          alt={`${roomType.name} photo ${index + 1}`}
+                          className="w-full h-24 object-cover rounded-lg cursor-pointer hover:opacity-75 transition-opacity"
+                          onClick={() => {
+                            const photoIndex = allImages.indexOf(photo);
+                            if (photoIndex !== -1) {
+                              setActiveImageIndex(photoIndex);
+                              window.scrollTo({ top: 0, behavior: 'smooth' });
+                            }
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Common Facilities */}
+        <div className="bg-white rounded-xl p-8 shadow-sm mb-8">
+          <h2 className="text-xl font-semibold text-gray-900 mb-6">Fasilitas Umum</h2>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {property.common_amenities?.map((amenity, index) => (
+              <div
+                key={index}
+                className="flex items-center p-3 bg-blue-50 rounded-lg"
+              >
+                <CheckCircle size={16} className="text-blue-500 mr-2" />
+                <span className="text-gray-700 text-sm">{amenity}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Parking Facilities */}
+        {property.parking_amenities && property.parking_amenities.length > 0 && (
+          <div className="bg-white rounded-xl p-8 shadow-sm mb-8">
+            <h2 className="text-xl font-semibold text-gray-900 mb-6">Fasilitas Parkir</h2>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {property.parking_amenities?.map((amenity, index) => (
                 <div
-                  key={roomType.id}
-                  className={`bg-white rounded-xl p-8 shadow-sm cursor-pointer transition-all ${
-                    selectedRoomType?.id === roomType.id
-                      ? 'ring-2 ring-blue-500'
-                      : 'hover:shadow-md'
-                  }`}
-                  onClick={() => setSelectedRoomType(roomType)}
+                  key={index}
+                  className="flex items-center p-3 bg-blue-50 rounded-lg"
                 >
-                  <div className="flex justify-between items-start mb-6">
-                    <div>
-                      <h3 className="text-lg font-semibold">{roomType.name}</h3>
-                      <p className="text-gray-600 mt-1">{roomType.description}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-2xl font-bold text-blue-600">
-                        {formatCurrency(roomType.price)}
-                        <span className="text-sm font-normal text-gray-500">/bulan</span>
-                      </p>
-                      {roomType.enable_daily_price && (
-                        <p className="text-sm text-gray-600 mt-1">
-                          {formatCurrency(roomType.daily_price || 0)}/hari
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div>
-                      <h4 className="font-medium text-gray-900 mb-4">Fasilitas Kamar</h4>
-                      <div className="space-y-3">
-                        {roomType.room_facilities?.map((facility, index) => (
-                          <div key={index} className="flex items-center text-gray-600">
-                            <CheckCircle size={16} className="text-green-500 mr-2" />
-                            {facility}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div>
-                      <h4 className="font-medium text-gray-900 mb-4">Fasilitas Kamar Mandi</h4>
-                      <div className="space-y-3">
-                        {roomType.bathroom_facilities?.map((facility, index) => (
-                          <div key={index} className="flex items-center text-gray-600">
-                            <CheckCircle size={16} className="text-green-500 mr-2" />
-                            {facility}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-
-                  {roomType.photos && roomType.photos.length > 0 && (
-                    <div className="mt-6">
-                      <h4 className="font-medium text-gray-900 mb-4">Foto Kamar</h4>
-                      <div className="grid grid-cols-3 gap-4">
-                        {roomType.photos.map((photo, index) => (
-                          <img
-                            key={index}
-                            src={photo}
-                            alt={`${roomType.name} photo ${index + 1}`}
-                            className="w-full h-24 object-cover rounded-lg cursor-pointer hover:opacity-75 transition-opacity"
-                            onClick={() => {
-                              const photoIndex = allImages.indexOf(photo);
-                              if (photoIndex !== -1) {
-                                setActiveImageIndex(photoIndex);
-                                window.scrollTo({ top: 0, behavior: 'smooth' });
-                              }
-                            }}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                  <CheckCircle size={16} className="text-blue-500 mr-2" />
+                  <span className="text-gray-700 text-sm">{amenity}</span>
                 </div>
               ))}
             </div>
-
-            {/* House Rules */}
-            {property.rules && property.rules.length > 0 && (
-              <div className="bg-white rounded-xl p-8 shadow-sm">
-                <h2 className="text-xl font-semibold text-gray-900 mb-6">Peraturan Kost</h2>
-                <div className="space-y-4">
-                  {property.rules.map((rule, index) => (
-                    <div key={index} className="flex items-start">
-                      <span className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-blue-100 text-blue-600 mr-3 mt-0.5">
-                        {index + 1}
-                      </span>
-                      <p className="text-gray-700">{rule}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
+        )}
 
-          {/* Contact Information Card */}
-          <div>
-            <div className="bg-white rounded-xl p-8 shadow-sm sticky top-24">
-              <h2 className="text-xl font-semibold text-gray-900 mb-6">Informasi Kontak</h2>
-              <div className="space-y-4 mb-8">
-                <div className="flex items-center">
-                  <Phone className="text-blue-500 mr-3" size={20} />
-                  <p>{property.phone}</p>
+        {/* House Rules */}
+        {property.rules && property.rules.length > 0 && (
+          <div className="bg-white rounded-xl p-8 shadow-sm">
+            <h2 className="text-xl font-semibold text-gray-900 mb-6">Peraturan Kost</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {property.rules.map((rule, index) => (
+                <div key={index} className="flex items-start">
+                  <span className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-blue-100 text-blue-600 mr-3 mt-0.5">
+                    {index + 1}
+                  </span>
+                  <p className="text-gray-700">{rule}</p>
                 </div>
-                <div className="flex items-center">
-                  <Mail className="text-blue-500 mr-3" size={20} />
-                  <p>{property.email}</p>
-                </div>
-              </div>
+              ))}
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Sticky Chat Buttons */}
@@ -329,7 +317,7 @@ const PropertyDetails: React.FC = () => {
           <div className="flex gap-4">
             <Button
               className="flex-1 bg-blue-600 hover:bg-blue-700"
-              onClick={() => navigate('/login')}
+              onClick={() => navigate('/marketplace/chat')}
               icon={<MessageCircle size={20} />}
             >
               Chat dengan Pengelola
