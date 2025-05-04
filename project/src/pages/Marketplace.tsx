@@ -3,8 +3,64 @@ import { useNavigate } from 'react-router-dom';
 import { Property, Room, RoomType } from '../types';
 import { formatCurrency } from '../utils/formatters';
 import { supabase } from '../lib/supabase';
-import { Building2, MapPin, Phone, Mail, Search, Filter, Bed, Users, Bath, Star, Home, CheckCircle } from 'lucide-react';
+import { 
+  Building2, 
+  MapPin, 
+  Phone, 
+  Mail, 
+  Search, 
+  Filter, 
+  Bed, 
+  Users, 
+  Bath, 
+  Star, 
+  Home, 
+  CheckCircle,
+  Store,
+  Heart,
+  MessageSquare,
+  User as UserIcon
+} from 'lucide-react';
 import Button from '../components/ui/Button';
+
+const BottomNav: React.FC = () => {
+  const navigate = useNavigate();
+  
+  return (
+    <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 lg:hidden">
+      <div className="grid grid-cols-4 h-16">
+        <button 
+          className="flex flex-col items-center justify-center text-blue-600"
+          onClick={() => navigate('/marketplace')}
+        >
+          <Home size={20} />
+          <span className="text-xs mt-1">Beranda</span>
+        </button>
+        <button 
+          className="flex flex-col items-center justify-center text-gray-600"
+          onClick={() => navigate('/marketplace/saved')}
+        >
+          <Heart size={20} />
+          <span className="text-xs mt-1">Favorit</span>
+        </button>
+        <button 
+          className="flex flex-col items-center justify-center text-gray-600"
+          onClick={() => navigate('/marketplace/chat')}
+        >
+          <MessageSquare size={20} />
+          <span className="text-xs mt-1">Chat</span>
+        </button>
+        <button 
+          className="flex flex-col items-center justify-center text-gray-600"
+          onClick={() => navigate('/login')}
+        >
+          <UserIcon size={20} />
+          <span className="text-xs mt-1">Akun</span>
+        </button>
+      </div>
+    </div>
+  );
+};
 
 const Marketplace: React.FC = () => {
   const navigate = useNavigate();
@@ -26,7 +82,6 @@ const Marketplace: React.FC = () => {
       setIsLoading(true);
       setError(null);
 
-      // Ambil data properti
       const { data: propertiesData, error: propertiesError } = await supabase
         .from('properties')
         .select('*')
@@ -35,7 +90,6 @@ const Marketplace: React.FC = () => {
 
       if (propertiesError) throw propertiesError;
 
-      // Ambil tipe kamar untuk setiap properti
       const roomTypesData: Record<string, RoomType[]> = {};
       const uniqueCities = new Set<string>();
 
@@ -87,7 +141,7 @@ const Marketplace: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 pb-16 lg:pb-0">
       {/* Header */}
       <div className="bg-gradient-to-r from-blue-600 to-blue-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -275,8 +329,11 @@ const Marketplace: React.FC = () => {
         )}
       </div>
 
-      {/* Footer */}
-      <footer className="bg-white border-t border-gray-200 py-12 mt-12">
+      {/* Bottom Navigation */}
+      <BottomNav />
+
+      {/* Footer - Hide on mobile */}
+      <footer className="bg-white border-t border-gray-200 py-12 mt-12 hidden lg:block">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div>
