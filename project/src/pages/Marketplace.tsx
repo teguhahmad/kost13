@@ -179,6 +179,7 @@ const Marketplace: React.FC = () => {
             {filteredProperties.map((property) => {
               const propertyRoomTypes = roomTypes[property.id] || [];
               const lowestPrice = Math.min(...propertyRoomTypes.map((rt) => rt.price));
+              const firstRoomType = propertyRoomTypes[0];
 
               return (
                 <div
@@ -188,7 +189,13 @@ const Marketplace: React.FC = () => {
                 >
                   {/* Property Image */}
                   <div className="relative h-64">
-                    {property.photos && property.photos.length > 0 ? (
+                    {firstRoomType?.photos && firstRoomType.photos.length > 0 ? (
+                      <img
+                        src={firstRoomType.photos[0]}
+                        alt={property.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : property.photos && property.photos.length > 0 ? (
                       <img
                         src={property.photos[0]}
                         alt={property.name}
@@ -249,17 +256,6 @@ const Marketplace: React.FC = () => {
                         ))}
                       </div>
                     </div>
-
-                    {/* Call to Action */}
-                    <Button
-                      className="w-full mt-6"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate('/login');
-                      }}
-                    >
-                      Lihat Detail & Pesan
-                    </Button>
                   </div>
                 </div>
               );
