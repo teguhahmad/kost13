@@ -92,6 +92,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ type, images, onUpload, onDel
     } catch (err) {
       console.error('Error deleting image:', err);
       setError(err instanceof Error ? err.message : 'Failed to delete image');
+      throw err;
     }
   };
 
@@ -229,6 +230,52 @@ const MarketplaceSettings: React.FC = () => {
     }
   };
 
+  const updateRoomType = async (data: Partial<RoomType>) => {
+    if (!selectedProperty || !editingRoomType) return;
+
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      // First, update the room type record
+      const { error: updateError } = await supabase
+        .from('room_types')
+        .update({
+          ...data,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', editingRoomType.id);
+
+      if (updateError) throw updateError;
+
+      // After successful room type update, update any rooms using this type
+      if (data.name !== editingRoomType.name) {
+        const { error: updateRoomsError } = await supabase
+          .from('rooms')
+          .update({ type: data.name })
+          .eq('property_id', selectedProperty.id)
+          .eq('type', editingRoomType.name);
+
+        if (updateRoomsError) throw updateRoomsError;
+      }
+
+      await loadRoomTypes();
+      setShowRoomTypeForm(false);
+      setEditingRoomType(undefined);
+      setPendingRoomTypeUpdate(null);
+      setAffectedRooms([]);
+      setShowAffectedRoomsModal(false);
+
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 3000);
+    } catch (err) {
+      console.error('Error updating room type:', err);
+      setError(err instanceof Error ? err.message : 'Failed to update room type');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleRoomTypeSubmit = async (data: Partial<RoomType>) => {
     if (!selectedProperty) return;
 
@@ -252,25 +299,7 @@ const MarketplaceSettings: React.FC = () => {
           return;
         }
 
-        const { error: updateError } = await supabase
-          .from('room_types')
-          .update({
-            ...data,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', editingRoomType.id);
-
-        if (updateError) throw updateError;
-
-        if (data.name !== editingRoomType.name && existingRooms?.length > 0) {
-          const { error: roomsUpdateError } = await supabase
-            .from('rooms')
-            .update({ type: data.name })
-            .eq('property_id', selectedProperty.id)
-            .eq('type', editingRoomType.name);
-
-          if (roomsUpdateError) throw roomsUpdateError;
-        }
+        await updateRoomType(data);
       } else {
         const { error } = await supabase
           .from('room_types')
@@ -280,13 +309,10 @@ const MarketplaceSettings: React.FC = () => {
           }]);
 
         if (error) throw error;
-      }
 
-      await loadRoomTypes();
-      setShowRoomTypeForm(false);
-      setEditingRoomType(undefined);
-      setPendingRoomTypeUpdate(null);
-      setAffectedRooms([]);
+        await loadRoomTypes();
+        setShowRoomTypeForm(false);
+      }
     } catch (err) {
       console.error('Error saving room type:', err);
       setError(err instanceof Error ? err.message : 'Failed to save room type');
@@ -296,7 +322,7 @@ const MarketplaceSettings: React.FC = () => {
   };
 
   const handleDeleteRoomType = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this room type?')) return;
+    if (!selectedProperty) return;
 
     try {
       setIsLoading(true);
@@ -305,26 +331,30 @@ const MarketplaceSettings: React.FC = () => {
       const roomType = roomTypes.find(rt => rt.id === id);
       if (!roomType) throw new Error('Room type not found');
 
+      // Check for rooms using this type
       const { data: existingRooms, error: roomsError } = await supabase
         .from('rooms')
         .select('id, name')
         .eq('type', roomType.name)
-        .eq('property_id', selectedProperty?.id);
+        .eq('property_id', selectedProperty.id);
 
       if (roomsError) throw roomsError;
 
       if (existingRooms && existingRooms.length > 0) {
-        throw new Error(`Cannot delete room type because it is being used by ${existingRooms.length} room(s). Please reassign or delete these rooms first.`);
+        throw new Error(`Cannot delete room type "${roomType.name}" because it is being used by ${existingRooms.length} room(s). Please reassign these rooms to a different type or delete them first:\n\n${existingRooms.map(room => room.name).join('\n')}`);
       }
 
-      const { error } = await supabase
+      // If no rooms are using this type, we can safely delete it
+      const { error: deleteError } = await supabase
         .from('room_types')
         .delete()
         .eq('id', id);
 
-      if (error) throw error;
+      if (deleteError) throw deleteError;
 
       await loadRoomTypes();
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 3000);
     } catch (err) {
       console.error('Error deleting room type:', err);
       setError(err instanceof Error ? err.message : 'Failed to delete room type');
