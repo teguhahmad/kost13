@@ -333,37 +333,41 @@ const MarketplaceSettings: React.FC = () => {
     }
   };
 
-  const handleToggleMarketplace = async () => {
-    if (!selectedProperty) return;
+const handleToggleMarketplace = async () => {
+  if (!selectedProperty) return;
 
-    try {
-      setIsSaving(true);
-      setError(null);
+  try {
+    setIsSaving(true);
+    setError(null);
 
-      const { error } = await supabase
-        .from('properties')
-        .update({
-          marketplace_enabled: !settings.marketplace_enabled,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', selectedProperty.id);
+    const newEnabled = !settings.marketplace_enabled;
 
-      if (error) throw error;
+    const { error } = await supabase
+      .from('properties')
+      .update({
+        marketplace_enabled: newEnabled,
+        marketplace_status: newEnabled ? 'published' : 'draft', // Automatically set status when toggling
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', selectedProperty.id);
 
-      setSettings(prev => ({
-        ...prev,
-        marketplace_enabled: !prev.marketplace_enabled
-      }));
+    if (error) throw error;
 
-      setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 3000);
-    } catch (err) {
-      console.error('Error toggling marketplace:', err);
-      setError('Failed to update marketplace status');
-    } finally {
-      setIsSaving(false);
-    }
-  };
+    setSettings(prev => ({
+      ...prev,
+      marketplace_enabled: newEnabled,
+      marketplace_status: newEnabled ? 'published' : 'draft' // Update local state as well
+    }));
+
+    setShowSuccess(true);
+    setTimeout(() => setShowSuccess(false), 3000);
+  } catch (err) {
+    console.error('Error toggling marketplace:', err);
+    setError('Failed to update marketplace status');
+  } finally {
+    setIsSaving(false);
+  }
+};
 
   const handleSaveSettings = async () => {
     if (!selectedProperty) return;
