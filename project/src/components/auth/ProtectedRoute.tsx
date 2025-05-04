@@ -14,10 +14,12 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles 
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const checkAuth = async () => {
       try {
+        setIsLoading(true);
         const { data: { session } } = await supabase.auth.getSession();
         setIsAuthenticated(!!session);
 
@@ -40,7 +42,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles 
 
         // If trying to access backoffice routes but not a backoffice user
         if (location.pathname.startsWith('/backoffice') && !backofficeUser) {
-          setError('You do not have access to the backoffice');
+          setError('Anda tidak memiliki akses ke backoffice');
           navigate('/login');
           return;
         }
@@ -80,6 +82,17 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles 
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 text-blue-600 animate-spin" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-4">
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative mb-4">
+          {error}
+        </div>
+        <Button onClick={() => navigate('/')}>Back to Homepage</Button>
       </div>
     );
   }
