@@ -166,31 +166,17 @@ const RoomForm: React.FC<RoomFormProps> = ({ room, onSubmit, onClose }) => {
           ) : (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Tipe Kamar
+                Harga per Bulan
               </label>
               <input
-                type="text"
-                name="type"
-                value={formData.type}
+                type="number"
+                name="price"
+                value={formData.price}
                 onChange={handleChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required
-                placeholder="Contoh: Standard, Deluxe, dll"
+                min="0"
               />
-              <div className="mt-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Harga per Bulan
-                </label>
-                <input
-                  type="number"
-                  name="price"
-                  value={formData.price}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                  min="0"
-                />
-              </div>
             </div>
           )}
 
