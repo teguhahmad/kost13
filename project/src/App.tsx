@@ -40,6 +40,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; allowedRoles?: strin
   const { selectedProperty } = useProperty();
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [isBackofficeUser, setIsBackofficeUser] = useState<boolean | null>(null);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -53,21 +54,40 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; allowedRoles?: strin
         } else {
           navigate('/login', { state: { from: location.pathname } });
         }
-      } else {
-        // Check user role
-        const role = session.user.user_metadata?.role;
-        setUserRole(role);
+        return;
+      }
 
-        // Redirect tenant users to marketplace
-        if (role === 'tenant' && !location.pathname.startsWith('/marketplace')) {
-          navigate('/marketplace');
-        }
+      // Check if user is in backoffice_users table
+      const { data: backofficeUser, error: backofficeError } = await supabase
+        .from('backoffice_users')
+        .select('role')
+        .eq('user_id', session.user.id)
+        .single();
 
-        // Check if user has the required role
-        if (allowedRoles && !allowedRoles.includes(role)) {
-          setError('Anda tidak memiliki akses ke halaman ini');
-          navigate('/login');
-        }
+      setIsBackofficeUser(!!backofficeUser);
+
+      // If trying to access backoffice but not a backoffice user
+      if (location.pathname.startsWith('/backoffice') && !backofficeUser) {
+        setError('You do not have access to the backoffice');
+        navigate('/');
+        return;
+      }
+
+      // Set role based on backoffice role or user metadata
+      const role = backofficeUser?.role || session.user.user_metadata?.role;
+      setUserRole(role);
+
+      // Redirect tenant users to marketplace
+      if (role === 'tenant' && !location.pathname.startsWith('/marketplace')) {
+        navigate('/marketplace');
+        return;
+      }
+
+      // Check if user has the required role
+      if (allowedRoles && !allowedRoles.includes(role)) {
+        setError('You do not have permission to access this page');
+        navigate('/');
+        return;
       }
     };
 
@@ -85,7 +105,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; allowedRoles?: strin
     };
   }, [navigate, location, allowedRoles]);
 
-  if (isAuthenticated === null) {
+  if (isAuthenticated === null || isBackofficeUser === null) {
     return <div>Loading...</div>;
   }
 
@@ -94,9 +114,20 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; allowedRoles?: strin
   }
 
   // Only redirect to properties if we're not already there and no property is selected
-  // and the user is not a tenant
-  if (!selectedProperty && location.pathname !== '/properties' && userRole !== 'tenant') {
+  // and the user is not a tenant and not trying to access backoffice
+  if (
+    !selectedProperty &&
+    location.pathname !== '/properties' &&
+    userRole !== 'tenant' &&
+    !location.pathname.startsWith('/backoffice')
+  ) {
     return <Navigate to="/properties" replace />;
+  }
+
+  // Block backoffice access for non-backoffice users
+  if (location.pathname.startsWith('/backoffice') && !isBackofficeUser) {
+    navigate('/');
+    return null;
   }
 
   return <>{children}</>;
