@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Card, { CardContent } from '../components/ui/Card';
+import Card, { CardHeader, CardContent } from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
 import { Search, MapPin, Phone, Mail, Building2, Bed, Bath, Wifi, Fan, DoorClosed, Loader2, LogIn } from 'lucide-react';
@@ -10,20 +10,23 @@ import { supabase } from '../lib/supabase';
 interface KostListing {
   id: string;
   property_id: string;
-  room_id: string;
+  room_type_id: string;
   name: string;
   description: string;
   address: string;
   city: string;
   price: number;
   type: string;
-  facilities: string[];
-  images: string[];
+  room_facilities: string[];
+  bathroom_facilities: string[];
+  photos: string[];
   contact: {
     phone: string;
     email: string;
   };
   available_rooms: number;
+  max_occupancy: number;
+  renter_gender: 'male' | 'female' | 'any';
 }
 
 const Marketplace: React.FC = () => {
@@ -32,6 +35,7 @@ const Marketplace: React.FC = () => {
   const [cityFilter, setCityFilter] = useState('');
   const [priceRange, setPriceRange] = useState({ min: 0, max: 10000000 });
   const [typeFilter, setTypeFilter] = useState('all');
+  const [genderFilter, setGenderFilter] = useState('all');
   const [isLoading, setIsLoading] = useState(true);
   const [listings, setListings] = useState<KostListing[]>([]);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
@@ -60,16 +64,24 @@ const Marketplace: React.FC = () => {
           city,
           phone,
           email,
+          description,
           marketplace_enabled,
-          marketplace_price,
           marketplace_status,
-          rooms (
+          room_types (
             id,
             name,
-            type,
             price,
-            status,
-            facilities
+            description,
+            room_facilities,
+            bathroom_facilities,
+            photos,
+            max_occupancy,
+            renter_gender
+          ),
+          rooms (
+            id,
+            type,
+            status
           )
         `)
         .eq('marketplace_enabled', true)
@@ -79,42 +91,39 @@ const Marketplace: React.FC = () => {
 
       // Transform the data into listings
       const transformedListings = properties?.reduce((acc: KostListing[], property) => {
-        const availableRooms = property.rooms?.filter(room => room.status === 'vacant') || [];
-        
-        if (availableRooms.length > 0) {
-          // Group rooms by type and get the lowest price
-          const roomTypes = new Map();
-          availableRooms.forEach(room => {
-            if (!roomTypes.has(room.type) || roomTypes.get(room.type).price > room.price) {
-              roomTypes.set(room.type, room);
-            }
-          });
+        if (!property.room_types) return acc;
 
-          // Create a listing for each room type
-          roomTypes.forEach(room => {
+        property.room_types.forEach(roomType => {
+          // Count available rooms of this type
+          const availableRooms = property.rooms?.filter(
+            room => room.type === roomType.name && room.status === 'vacant'
+          ).length || 0;
+
+          if (availableRooms > 0) {
             acc.push({
-              id: `${property.id}-${room.type}`,
+              id: `${property.id}-${roomType.id}`,
               property_id: property.id,
-              room_id: room.id,
-              name: `${property.name} - ${room.type.charAt(0).toUpperCase() + room.type.slice(1)} Room`,
-              description: `Available ${room.type} rooms in ${property.name}`,
+              room_type_id: roomType.id,
+              name: `${property.name} - ${roomType.name}`,
+              description: roomType.description || property.description || '',
               address: property.address,
               city: property.city,
-              price: room.price,
-              type: room.type,
-              facilities: room.facilities || [],
-              images: [
-                'https://images.pexels.com/photos/1571460/pexels-photo-1571460.jpeg',
-                'https://images.pexels.com/photos/271624/pexels-photo-271624.jpeg'
-              ],
+              price: roomType.price,
+              type: roomType.name,
+              room_facilities: roomType.room_facilities || [],
+              bathroom_facilities: roomType.bathroom_facilities || [],
+              photos: roomType.photos || [],
               contact: {
-                phone: property.phone,
-                email: property.email
+                phone: property.phone || '',
+                email: property.email || ''
               },
-              available_rooms: availableRooms.filter(r => r.type === room.type).length
+              available_rooms: availableRooms,
+              max_occupancy: roomType.max_occupancy,
+              renter_gender: roomType.renter_gender
             });
-          });
-        }
+          }
+        });
+
         return acc;
       }, []);
 
@@ -135,8 +144,9 @@ const Marketplace: React.FC = () => {
     const matchesCity = !cityFilter || listing.city.toLowerCase() === cityFilter.toLowerCase();
     const matchesPrice = listing.price >= priceRange.min && listing.price <= priceRange.max;
     const matchesType = typeFilter === 'all' || listing.type === typeFilter;
+    const matchesGender = genderFilter === 'all' || listing.renter_gender === genderFilter || listing.renter_gender === 'any';
 
-    return matchesSearch && matchesCity && matchesPrice && matchesType;
+    return matchesSearch && matchesCity && matchesPrice && matchesType && matchesGender;
   });
 
   const cities = [...new Set(listings.map(listing => listing.city))];
@@ -213,8 +223,17 @@ const Marketplace: React.FC = () => {
             >
               <option value="all">All Types</option>
               {types.map(type => (
-                <option key={type} value={type}>{type.charAt(0).toUpperCase() + type.slice(1)}</option>
+                <option key={type} value={type}>{type}</option>
               ))}
+            </select>
+            <select
+              value={genderFilter}
+              onChange={(e) => setGenderFilter(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="all">All Genders</option>
+              <option value="male">Male Only</option>
+              <option value="female">Female Only</option>
             </select>
           </div>
         </div>
@@ -223,14 +242,29 @@ const Marketplace: React.FC = () => {
           {filteredListings.map((listing) => (
             <Card key={listing.id} className="overflow-hidden">
               <div className="relative h-48">
-                <img
-                  src={listing.images[0]}
-                  alt={listing.name}
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute top-4 right-4">
+                {listing.photos && listing.photos.length > 0 ? (
+                  <img
+                    src={listing.photos[0]}
+                    alt={listing.name}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                    <Building2 size={48} className="text-gray-400" />
+                  </div>
+                )}
+                <div className="absolute top-4 right-4 flex gap-2">
                   <Badge className="bg-green-100 text-green-800">
                     {listing.available_rooms} Available
+                  </Badge>
+                  <Badge className={
+                    listing.renter_gender === 'male' ? 'bg-blue-100 text-blue-800' :
+                    listing.renter_gender === 'female' ? 'bg-pink-100 text-pink-800' :
+                    'bg-purple-100 text-purple-800'
+                  }>
+                    {listing.renter_gender === 'male' ? 'Male Only' :
+                     listing.renter_gender === 'female' ? 'Female Only' :
+                     'All Gender'}
                   </Badge>
                 </div>
               </div>
@@ -240,8 +274,8 @@ const Marketplace: React.FC = () => {
                   <MapPin size={16} className="mt-1" />
                   <p>{listing.address}, {listing.city}</p>
                 </div>
-                <div className="flex items-center gap-2 mb-4">
-                  {listing.facilities.map((facility, index) => (
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {listing.room_facilities.map((facility, index) => (
                     <div
                       key={index}
                       className="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded text-sm text-gray-600"
