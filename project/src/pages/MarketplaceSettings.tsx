@@ -5,7 +5,7 @@ import RoomTypeForm from '../components/rooms/RoomTypeForm';
 import { Property, RoomType } from '../types';
 import { useProperty } from '../contexts/PropertyContext';
 import { supabase } from '../lib/supabase';
-import { Store, Plus, X, Eye, EyeOff, Globe, CheckCircle, Trash, Loader2, ImageIcon } from 'lucide-react';
+import { Store, Plus, X, Eye, EyeOff, Globe, CheckCircle, Trash, Loader2, ImageIcon, AlertTriangle } from 'lucide-react';
 import FeatureGuard from '../components/ui/FeatureGuard';
 
 interface ImageUploadProps {
@@ -27,21 +27,17 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ type, images, onUpload, onDel
       setIsUploading(true);
       setError(null);
 
-      // Validate file type
       if (!file.type.startsWith('image/')) {
         throw new Error('Please upload an image file');
       }
 
-      // Create form data
       const formData = new FormData();
       formData.append('file', file);
       formData.append('type', type);
 
-      // Get session for authentication
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) throw new Error('Not authenticated');
 
-      // Upload using edge function
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/upload-image`,
         {
@@ -158,6 +154,9 @@ const MarketplaceSettings: React.FC = () => {
   const [showRoomTypeForm, setShowRoomTypeForm] = useState(false);
   const [editingRoomType, setEditingRoomType] = useState<RoomType | undefined>();
   const [roomTypes, setRoomTypes] = useState<RoomType[]>([]);
+  const [affectedRooms, setAffectedRooms] = useState<{ id: string; name: string; }[]>([]);
+  const [showAffectedRoomsModal, setShowAffectedRoomsModal] = useState(false);
+  const [pendingRoomTypeUpdate, setPendingRoomTypeUpdate] = useState<Partial<RoomType> | null>(null);
   
   const [settings, setSettings] = useState({
     marketplace_enabled: false,
@@ -238,7 +237,22 @@ const MarketplaceSettings: React.FC = () => {
       setError(null);
 
       if (editingRoomType) {
-        const { error } = await supabase
+        const { data: existingRooms, error: roomsError } = await supabase
+          .from('rooms')
+          .select('id, name, type')
+          .eq('type', editingRoomType.name)
+          .eq('property_id', selectedProperty.id);
+
+        if (roomsError) throw roomsError;
+
+        if (existingRooms?.length > 0 && data.name !== editingRoomType.name) {
+          setAffectedRooms(existingRooms);
+          setPendingRoomTypeUpdate(data);
+          setShowAffectedRoomsModal(true);
+          return;
+        }
+
+        const { error: updateError } = await supabase
           .from('room_types')
           .update({
             ...data,
@@ -246,7 +260,17 @@ const MarketplaceSettings: React.FC = () => {
           })
           .eq('id', editingRoomType.id);
 
-        if (error) throw error;
+        if (updateError) throw updateError;
+
+        if (data.name !== editingRoomType.name && existingRooms?.length > 0) {
+          const { error: roomsUpdateError } = await supabase
+            .from('rooms')
+            .update({ type: data.name })
+            .eq('property_id', selectedProperty.id)
+            .eq('type', editingRoomType.name);
+
+          if (roomsUpdateError) throw roomsUpdateError;
+        }
       } else {
         const { error } = await supabase
           .from('room_types')
@@ -261,9 +285,11 @@ const MarketplaceSettings: React.FC = () => {
       await loadRoomTypes();
       setShowRoomTypeForm(false);
       setEditingRoomType(undefined);
+      setPendingRoomTypeUpdate(null);
+      setAffectedRooms([]);
     } catch (err) {
       console.error('Error saving room type:', err);
-      setError('Failed to save room type');
+      setError(err instanceof Error ? err.message : 'Failed to save room type');
     } finally {
       setIsLoading(false);
     }
@@ -276,6 +302,21 @@ const MarketplaceSettings: React.FC = () => {
       setIsLoading(true);
       setError(null);
 
+      const roomType = roomTypes.find(rt => rt.id === id);
+      if (!roomType) throw new Error('Room type not found');
+
+      const { data: existingRooms, error: roomsError } = await supabase
+        .from('rooms')
+        .select('id, name')
+        .eq('type', roomType.name)
+        .eq('property_id', selectedProperty?.id);
+
+      if (roomsError) throw roomsError;
+
+      if (existingRooms && existingRooms.length > 0) {
+        throw new Error(`Cannot delete room type because it is being used by ${existingRooms.length} room(s). Please reassign or delete these rooms first.`);
+      }
+
       const { error } = await supabase
         .from('room_types')
         .delete()
@@ -286,7 +327,7 @@ const MarketplaceSettings: React.FC = () => {
       await loadRoomTypes();
     } catch (err) {
       console.error('Error deleting room type:', err);
-      setError('Failed to delete room type');
+      setError(err instanceof Error ? err.message : 'Failed to delete room type');
     } finally {
       setIsLoading(false);
     }
@@ -485,7 +526,6 @@ const MarketplaceSettings: React.FC = () => {
           </div>
         )}
 
-        {/* Room Types */}
         <Card>
           <CardHeader className="flex justify-between items-center">
             <h2 className="text-lg font-semibold text-gray-800">Tipe Kamar</h2>
@@ -599,7 +639,6 @@ const MarketplaceSettings: React.FC = () => {
           </CardContent>
         </Card>
 
-        {/* Common Facilities */}
         <Card>
           <CardHeader className="flex justify-between items-center">
             <h2 className="text-lg font-semibold text-gray-800">Fasilitas Umum & Parkir</h2>
@@ -672,6 +711,60 @@ const MarketplaceSettings: React.FC = () => {
               setEditingRoomType(undefined);
             }}
           />
+        )}
+
+        {showAffectedRoomsModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4">
+              <div className="flex items-center gap-2 text-amber-600 mb-4">
+                <AlertTriangle size={24} />
+                <h3 className="text-lg font-semibold">Rooms Using This Type</h3>
+              </div>
+              
+              <p className="text-gray-600 mb-4">
+                The following rooms are currently using this room type:
+              </p>
+
+              <ul className="mb-4 space-y-2">
+                {affectedRooms.map(room => (
+                  <li key={room.id} className="flex items-center gap-2 text-gray-700">
+                    <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                    {room.name}
+                  </li>
+                ))}
+              </ul>
+
+              <p className="text-gray-600 mb-4">
+                You have two options:
+              </p>
+
+              <div className="space-y-3">
+                <Button
+                  variant="primary"
+                  className="w-full"
+                  onClick={() => {
+                    if (pendingRoomTypeUpdate) {
+                      updateRoomType(pendingRoomTypeUpdate);
+                    }
+                  }}
+                >
+                  Update room type name and details
+                </Button>
+
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => {
+                    setShowAffectedRoomsModal(false);
+                    setPendingRoomTypeUpdate(null);
+                    setAffectedRooms([]);
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </FeatureGuard>
