@@ -3,7 +3,6 @@ import Card, { CardHeader, CardContent } from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
 import RoomForm from '../components/rooms/RoomForm';
-import RoomTypeForm from '../components/rooms/RoomTypeForm';
 import { Room, Tenant, RoomType } from '../types';
 import { formatCurrency, getRoomStatusColor } from '../utils/formatters';
 import { Plus, Search, X, User, Loader2, Trash, Copy, DoorOpen, Bed, Settings } from 'lucide-react';
@@ -26,7 +25,6 @@ const Rooms: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { checkRoomLimit, maxRoomsPerProperty } = useSubscriptionLimits();
-  const [showRoomTypeForm, setShowRoomTypeForm] = useState(false);
   const [roomTypes, setRoomTypes] = useState<RoomType[]>([]);
   const [editingRoomType, setEditingRoomType] = useState<RoomType | undefined>();
 
@@ -85,50 +83,6 @@ const Rooms: React.FC = () => {
     } catch (err) {
       console.error('Error loading room types:', err);
       setError('Failed to load room types');
-    }
-  };
-
-  const handleAddRoomType = () => {
-    setEditingRoomType(undefined);
-    setShowRoomTypeForm(true);
-  };
-
-  const handleRoomTypeSubmit = async (data: Partial<RoomType>) => {
-    if (!selectedProperty) return;
-
-    try {
-      setIsLoading(true);
-      setError(null);
-
-      if (editingRoomType) {
-        const { error } = await supabase
-          .from('room_types')
-          .update({
-            ...data,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', editingRoomType.id);
-
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from('room_types')
-          .insert([{
-            ...data,
-            property_id: selectedProperty.id
-          }]);
-
-        if (error) throw error;
-      }
-
-      await loadRoomTypes();
-      setShowRoomTypeForm(false);
-      setEditingRoomType(undefined);
-    } catch (err) {
-      console.error('Error saving room type:', err);
-      setError('Failed to save room type');
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -380,13 +334,6 @@ const Rooms: React.FC = () => {
         <h1 className="text-2xl font-bold text-gray-900">Kamar</h1>
         <div className="flex gap-2">
           <Button 
-            variant="outline"
-            icon={<Settings size={16} />}
-            onClick={handleAddRoomType}
-          >
-            Tipe Kamar
-          </Button>
-          <Button 
             icon={<Plus size={16} />} 
             onClick={handleAddRoom}
             disabled={isLoading}
@@ -568,17 +515,6 @@ const Rooms: React.FC = () => {
             setShowRoomForm(false);
             setEditingRoom(undefined);
             setError(null);
-          }}
-        />
-      )}
-
-      {showRoomTypeForm && (
-        <RoomTypeForm
-          roomType={editingRoomType}
-          onSubmit={handleRoomTypeSubmit}
-          onClose={() => {
-            setShowRoomTypeForm(false);
-            setEditingRoomType(undefined);
           }}
         />
       )}
