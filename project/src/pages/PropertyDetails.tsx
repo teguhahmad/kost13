@@ -107,9 +107,9 @@ const PropertyDetails: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 pb-24">
       {/* Navigation Bar */}
-      <div className="bg-white shadow-sm">
+      <div className="bg-white shadow-sm sticky top-0 z-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <button
@@ -125,13 +125,13 @@ const PropertyDetails: React.FC = () => {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Image Gallery */}
-        <div className="relative aspect-w-16 aspect-h-9 rounded-xl overflow-hidden mb-8">
+        <div className="relative aspect-w-16 aspect-h-9 rounded-xl overflow-hidden mb-8 bg-gray-100">
           {allImages.length > 0 ? (
             <>
               <img
                 src={allImages[activeImageIndex]}
                 alt={`${property.name} - Image ${activeImageIndex + 1}`}
-                className="w-full h-full object-cover"
+                className="w-full h-[600px] object-cover"
               />
               {/* Image Navigation */}
               <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-2">
@@ -149,7 +149,7 @@ const PropertyDetails: React.FC = () => {
               </div>
             </>
           ) : (
-            <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+            <div className="w-full h-[600px] flex items-center justify-center">
               <Building2 size={64} className="text-gray-400" />
             </div>
           )}
@@ -160,68 +160,66 @@ const PropertyDetails: React.FC = () => {
           {/* Property Details */}
           <div className="lg:col-span-2 space-y-8">
             {/* Property Overview Card */}
-            <div className="border rounded-xl p-6 bg-white shadow-md">
+            <div className="bg-white rounded-xl p-8 shadow-sm">
               <h1 className="text-3xl font-bold text-gray-900 mb-4">{property.name}</h1>
-              <div className="flex items-center text-gray-600 mb-4">
+              <div className="flex items-center text-gray-600 mb-6">
                 <MapPin size={20} className="mr-2" />
                 <p>{property.address}, {property.city}</p>
               </div>
-              <p className="text-gray-600">{property.description}</p>
+              <p className="text-gray-600 leading-relaxed">{property.description}</p>
             </div>
 
             {/* Common Amenities Card */}
-            <div className="border rounded-xl p-6 bg-white shadow-md">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Fasilitas Umum</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="bg-white rounded-xl p-8 shadow-sm">
+              <h2 className="text-xl font-semibold text-gray-900 mb-6">Fasilitas Umum</h2>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 {property.common_amenities?.map((amenity, index) => (
                   <div
                     key={index}
-                    className="border rounded-lg p-4 bg-gray-50 hover:bg-gray-100 transition-all"
+                    className="flex items-center p-4 bg-blue-50 rounded-lg"
                   >
-                    <div className="flex items-center space-x-2">
-                      <CheckCircle size={20} className="text-green-500" />
-                      <span className="text-gray-700">{amenity}</span>
-                    </div>
+                    <CheckCircle size={20} className="text-blue-500 mr-3" />
+                    <span className="text-gray-700">{amenity}</span>
                   </div>
                 ))}
               </div>
             </div>
 
             {/* Parking Amenities Card */}
-            <div className="border rounded-xl p-6 bg-white shadow-md">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Fasilitas Parkir</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {property.parking_amenities?.map((amenity, index) => (
-                  <div
-                    key={index}
-                    className="border rounded-lg p-4 bg-gray-50 hover:bg-gray-100 transition-all"
-                  >
-                    <div className="flex items-center space-x-2">
-                      <CheckCircle size={20} className="text-green-500" />
+            {property.parking_amenities && property.parking_amenities.length > 0 && (
+              <div className="bg-white rounded-xl p-8 shadow-sm">
+                <h2 className="text-xl font-semibold text-gray-900 mb-6">Fasilitas Parkir</h2>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {property.parking_amenities?.map((amenity, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center p-4 bg-blue-50 rounded-lg"
+                    >
+                      <CheckCircle size={20} className="text-blue-500 mr-3" />
                       <span className="text-gray-700">{amenity}</span>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
-            {/* Room Types Card */}
+            {/* Room Types */}
             <div className="space-y-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Tipe Kamar</h2>
+              <h2 className="text-xl font-semibold text-gray-900">Tipe Kamar</h2>
               {roomTypes.map((roomType) => (
                 <div
                   key={roomType.id}
-                  className={`border rounded-xl p-6 cursor-pointer transition-all ${
+                  className={`bg-white rounded-xl p-8 shadow-sm cursor-pointer transition-all ${
                     selectedRoomType?.id === roomType.id
-                      ? 'border-blue-500 bg-blue-50 shadow-md'
-                      : 'border-gray-200 hover:border-blue-200 hover:shadow-sm'
+                      ? 'ring-2 ring-blue-500'
+                      : 'hover:shadow-md'
                   }`}
                   onClick={() => setSelectedRoomType(roomType)}
                 >
-                  <div className="flex justify-between items-start mb-4">
+                  <div className="flex justify-between items-start mb-6">
                     <div>
                       <h3 className="text-lg font-semibold">{roomType.name}</h3>
-                      <p className="text-gray-600">{roomType.description}</p>
+                      <p className="text-gray-600 mt-1">{roomType.description}</p>
                     </div>
                     <div className="text-right">
                       <p className="text-2xl font-bold text-blue-600">
@@ -229,46 +227,88 @@ const PropertyDetails: React.FC = () => {
                         <span className="text-sm font-normal text-gray-500">/bulan</span>
                       </p>
                       {roomType.enable_daily_price && (
-                        <p className="text-sm text-gray-600">
+                        <p className="text-sm text-gray-600 mt-1">
                           {formatCurrency(roomType.daily_price || 0)}/hari
                         </p>
                       )}
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div>
-                      <h4 className="font-medium text-gray-900 mb-2">Fasilitas Kamar:</h4>
-                      <div className="space-y-2">
+                      <h4 className="font-medium text-gray-900 mb-4">Fasilitas Kamar</h4>
+                      <div className="space-y-3">
                         {roomType.room_facilities?.map((facility, index) => (
                           <div key={index} className="flex items-center text-gray-600">
-                            <CheckCircle size={16} className="mr-2 text-green-500" />
+                            <CheckCircle size={16} className="text-green-500 mr-2" />
                             {facility}
                           </div>
                         ))}
                       </div>
                     </div>
+
                     <div>
-                      <h4 className="font-medium text-gray-900 mb-2">Fasilitas Kamar Mandi:</h4>
-                      <div className="space-y-2">
+                      <h4 className="font-medium text-gray-900 mb-4">Fasilitas Kamar Mandi</h4>
+                      <div className="space-y-3">
                         {roomType.bathroom_facilities?.map((facility, index) => (
                           <div key={index} className="flex items-center text-gray-600">
-                            <CheckCircle size={16} className="mr-2 text-green-500" />
+                            <CheckCircle size={16} className="text-green-500 mr-2" />
                             {facility}
                           </div>
                         ))}
                       </div>
                     </div>
                   </div>
+
+                  {roomType.photos && roomType.photos.length > 0 && (
+                    <div className="mt-6">
+                      <h4 className="font-medium text-gray-900 mb-4">Foto Kamar</h4>
+                      <div className="grid grid-cols-3 gap-4">
+                        {roomType.photos.map((photo, index) => (
+                          <img
+                            key={index}
+                            src={photo}
+                            alt={`${roomType.name} photo ${index + 1}`}
+                            className="w-full h-24 object-cover rounded-lg cursor-pointer hover:opacity-75 transition-opacity"
+                            onClick={() => {
+                              const photoIndex = allImages.indexOf(photo);
+                              if (photoIndex !== -1) {
+                                setActiveImageIndex(photoIndex);
+                                window.scrollTo({ top: 0, behavior: 'smooth' });
+                              }
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
+
+            {/* House Rules */}
+            {property.rules && property.rules.length > 0 && (
+              <div className="bg-white rounded-xl p-8 shadow-sm">
+                <h2 className="text-xl font-semibold text-gray-900 mb-6">Peraturan Kost</h2>
+                <div className="space-y-4">
+                  {property.rules.map((rule, index) => (
+                    <div key={index} className="flex items-start">
+                      <span className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-blue-100 text-blue-600 mr-3 mt-0.5">
+                        {index + 1}
+                      </span>
+                      <p className="text-gray-700">{rule}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Contact Information Card */}
-          <div className="space-y-6">
-            <div className="border rounded-xl p-6 bg-white shadow-md sticky top-8">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Informasi Kontak</h2>
-              <div className="space-y-4">
+          <div>
+            <div className="bg-white rounded-xl p-8 shadow-sm sticky top-24">
+              <h2 className="text-xl font-semibold text-gray-900 mb-6">Informasi Kontak</h2>
+              <div className="space-y-4 mb-8">
                 <div className="flex items-center">
                   <Phone className="text-blue-500 mr-3" size={20} />
                   <p>{property.phone}</p>
@@ -278,24 +318,30 @@ const PropertyDetails: React.FC = () => {
                   <p>{property.email}</p>
                 </div>
               </div>
-              <div className="mt-6 space-y-3">
-                <Button
-                  className="w-full bg-blue-500 hover:bg-blue-600 text-white"
-                  onClick={() => navigate('/login')}
-                  icon={<MessageCircle size={20} />}
-                >
-                  Chat dengan Pengelola
-                </Button>
-                <Button
-                  variant="success"
-                  className="w-full bg-green-500 hover:bg-green-600 text-white"
-                  onClick={handleWhatsAppClick}
-                  icon={<Send size={20} />}
-                >
-                  Hubungi via WhatsApp
-                </Button>
-              </div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Sticky Chat Buttons */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 z-30">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex gap-4">
+            <Button
+              className="flex-1 bg-blue-600 hover:bg-blue-700"
+              onClick={() => navigate('/login')}
+              icon={<MessageCircle size={20} />}
+            >
+              Chat dengan Pengelola
+            </Button>
+            <Button
+              variant="success"
+              className="flex-1 bg-green-600 hover:bg-green-700"
+              onClick={handleWhatsAppClick}
+              icon={<Send size={20} />}
+            >
+              Hubungi via WhatsApp
+            </Button>
           </div>
         </div>
       </div>
