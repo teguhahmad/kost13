@@ -718,11 +718,11 @@ const MarketplaceSettings: React.FC = () => {
             <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4">
               <div className="flex items-center gap-2 text-amber-600 mb-4">
                 <AlertTriangle size={24} />
-                <h3 className="text-lg font-semibold">Rooms Using This Type</h3>
+                <h3 className="text-lg font-semibold">Apakah kamu yakin ini mengubah nama tipe ini?</h3>
               </div>
               
               <p className="text-gray-600 mb-4">
-                The following rooms are currently using this room type:
+                Berikut adalah beberapa kamar yang menggunakan tipe ini:
               </p>
 
               <ul className="mb-4 space-y-2">
@@ -735,7 +735,7 @@ const MarketplaceSettings: React.FC = () => {
               </ul>
 
               <p className="text-gray-600 mb-4">
-                You have two options:
+                Kamu memiliki dua pilihan:
               </p>
 
               <div className="space-y-3">
@@ -748,7 +748,7 @@ const MarketplaceSettings: React.FC = () => {
                     }
                   }}
                 >
-                  Update room type name and details
+                  Perbarui
                 </Button>
 
                 <Button
@@ -760,7 +760,7 @@ const MarketplaceSettings: React.FC = () => {
                     setAffectedRooms([]);
                   }}
                 >
-                  Cancel
+                  Batalkan
                 </Button>
               </div>
             </div>
