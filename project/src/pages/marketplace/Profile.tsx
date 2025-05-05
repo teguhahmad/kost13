@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import Button from '../../components/ui/Button';
 import Navigation from '../../components/marketplace/Navigation';
-import { User, Mail, Phone, Save, Loader2, CheckCircle, Eye, EyeOff } from 'lucide-react';
+import { User, Mail, Phone, Save, Loader2, CheckCircle, Eye, EyeOff, LogOut } from 'lucide-react';
 
 const Profile: React.FC = () => {
   const navigate = useNavigate();
@@ -18,18 +18,18 @@ const Profile: React.FC = () => {
   const [passwordError, setPasswordError] = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState(false);
 
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+
   const [profile, setProfile] = useState({
     name: '',
     email: '',
     phone: '',
     gender: 'male' as 'male' | 'female',
     occupation: 'student' as 'student' | 'professional' | 'other'
-  });
-
-  const [passwordForm, setPasswordForm] = useState({
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: ''
   });
 
   useEffect(() => {
@@ -62,12 +62,12 @@ const Profile: React.FC = () => {
     }
   };
 
-  const handleSaveProfile = async () => {
+  const handleSaveChanges = async () => {
+    setIsSaving(true);
+    setError(null);
+    
     try {
-      setIsSaving(true);
-      setError(null);
-
-      const { error: updateError } = await supabase.auth.updateUser({
+      await supabase.auth.updateUser({
         data: {
           name: profile.name,
           phone: profile.phone,
@@ -75,14 +75,12 @@ const Profile: React.FC = () => {
           occupation: profile.occupation
         }
       });
-
-      if (updateError) throw updateError;
-
+      
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
     } catch (err) {
-      console.error('Error saving profile:', err);
-      setError('Failed to save profile');
+      console.error('Error saving settings:', err);
+      setError('Failed to save settings');
     } finally {
       setIsSaving(false);
     }
@@ -126,6 +124,25 @@ const Profile: React.FC = () => {
     }
   };
 
+  const handlePasswordFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setPasswordForm(prev => ({
+      ...prev,
+      [name]: value
+    }));
+    setPasswordError('');
+  };
+
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      navigate('/marketplace/auth');
+    } catch (err) {
+      console.error('Error signing out:', err);
+      setError('Failed to sign out');
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -142,7 +159,16 @@ const Profile: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="bg-white rounded-lg shadow-md">
             <div className="p-6">
-              <h1 className="text-2xl font-bold text-gray-900 mb-6">Profil Saya</h1>
+              <div className="flex justify-between items-center mb-6">
+                <h1 className="text-2xl font-bold text-gray-900">Profil Saya</h1>
+                <Button 
+                  variant="danger"
+                  onClick={handleLogout}
+                  icon={<LogOut size={16} />}
+                >
+                  Keluar
+                </Button>
+              </div>
 
               {error && (
                 <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
@@ -162,45 +188,36 @@ const Profile: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Nama Lengkap
                   </label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={profile.name}
-                      onChange={(e) => setProfile(prev => ({ ...prev, name: e.target.value }))}
-                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <User className="h-5 w-5 text-gray-400 absolute left-3 top-2.5" />
-                  </div>
+                  <input
+                    type="text"
+                    value={profile.name}
+                    onChange={(e) => setProfile(prev => ({ ...prev, name: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Email
                   </label>
-                  <div className="relative">
-                    <input
-                      type="email"
-                      value={profile.email}
-                      disabled
-                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md bg-gray-50"
-                    />
-                    <Mail className="h-5 w-5 text-gray-400 absolute left-3 top-2.5" />
-                  </div>
+                  <input
+                    type="email"
+                    value={profile.email}
+                    disabled
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50"
+                  />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Nomor Telepon
                   </label>
-                  <div className="relative">
-                    <input
-                      type="tel"
-                      value={profile.phone}
-                      onChange={(e) => setProfile(prev => ({ ...prev, phone: e.target.value }))}
-                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <Phone className="h-5 w-5 text-gray-400 absolute left-3 top-2.5" />
-                  </div>
+                  <input
+                    type="tel"
+                    value={profile.phone}
+                    onChange={(e) => setProfile(prev => ({ ...prev, phone: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
                 </div>
 
                 <div>
@@ -244,7 +261,7 @@ const Profile: React.FC = () => {
                 <div className="flex justify-end">
                   <Button
                     icon={<Save size={16} />}
-                    onClick={handleSaveProfile}
+                    onClick={handleSaveChanges}
                     disabled={isSaving}
                   >
                     {isSaving ? 'Menyimpan...' : 'Simpan Perubahan'}
@@ -272,9 +289,10 @@ const Profile: React.FC = () => {
                 <div className="relative">
                   <input
                     type={showCurrentPassword ? 'text' : 'password'}
+                    name="currentPassword"
                     value={passwordForm.currentPassword}
-                    onChange={(e) => setPasswordForm(prev => ({ ...prev, currentPassword: e.target.value }))}
-                    className="w-full pr-10 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onChange={handlePasswordFormChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
                   />
                   <button
@@ -294,9 +312,10 @@ const Profile: React.FC = () => {
                 <div className="relative">
                   <input
                     type={showNewPassword ? 'text' : 'password'}
+                    name="newPassword"
                     value={passwordForm.newPassword}
-                    onChange={(e) => setPasswordForm(prev => ({ ...prev, newPassword: e.target.value }))}
-                    className="w-full pr-10 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onChange={handlePasswordFormChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
                   />
                   <button
@@ -316,9 +335,10 @@ const Profile: React.FC = () => {
                 <div className="relative">
                   <input
                     type={showConfirmPassword ? 'text' : 'password'}
+                    name="confirmPassword"
                     value={passwordForm.confirmPassword}
-                    onChange={(e) => setPasswordForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
-                    className="w-full pr-10 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onChange={handlePasswordFormChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
                   />
                   <button
