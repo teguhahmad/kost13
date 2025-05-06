@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
-import { Send, Loader2 } from 'lucide-react';
+import { Send, Loader2, ArrowLeft } from 'lucide-react';
 import FloatingNav from '../../components/ui/FloatingNav';
+import Button from '../../components/ui/Button';
 
 interface ChatMessage {
   id: string;
@@ -24,6 +25,7 @@ interface ChatUser {
 
 const Chat: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [chats, setChats] = useState<ChatUser[]>([]);
   const [selectedUser, setSelectedUser] = useState<ChatUser | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -31,9 +33,52 @@ const Chat: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Get receiverId from location state if coming from property details
+  const receiverId = location.state?.receiverId;
+  const propertyId = location.state?.propertyId;
+  const propertyName = location.state?.propertyName;
+
   useEffect(() => {
     loadChats();
-  }, []);
+    if (receiverId) {
+      loadUserDetails(receiverId);
+    }
+  }, [receiverId]);
+
+  const loadUserDetails = async (userId: string) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) return;
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-user-details`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ userIds: [userId] }),
+        }
+      );
+
+      if (!response.ok) throw new Error('Failed to fetch user details');
+      
+      const { users } = await response.json();
+      if (users && users[0]) {
+        const user = users[0];
+        setSelectedUser({
+          id: user.id,
+          name: user.name || user.email,
+          email: user.email
+        });
+        loadMessages(user.id);
+      }
+    } catch (err) {
+      console.error('Error loading user details:', err);
+      setError('Failed to load user details');
+    }
+  };
 
   const loadChats = async () => {
     try {
@@ -121,19 +166,26 @@ const Chat: React.FC = () => {
     }
   };
 
-  const sendMessage = async () => {
+  const handleSendMessage = async () => {
     if (!newMessage.trim() || !selectedUser) return;
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      let messageContent = newMessage.trim();
+      
+      // If this is the first message and we have property details, include them
+      if (propertyId && propertyName && messages.length === 0) {
+        messageContent = `Hi, I'm interested in your property "${propertyName}". ${messageContent}`;
+      }
+
       const { error } = await supabase
         .from('chat_messages')
         .insert([{
           sender_id: user.id,
           receiver_id: selectedUser.id,
-          content: newMessage.trim(),
+          content: messageContent,
           read: false
         }]);
 
@@ -254,12 +306,12 @@ const Chat: React.FC = () => {
                         type="text"
                         value={newMessage}
                         onChange={(e) => setNewMessage(e.target.value)}
-                        onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                        onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                         placeholder="Ketik pesan..."
                         className="flex-1 px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                       <button
-                        onClick={sendMessage}
+                        onClick={handleSendMessage}
                         disabled={!newMessage.trim()}
                         className="p-2 text-white bg-blue-500 rounded-full hover:bg-blue-600 disabled:opacity-50"
                       >
