@@ -47,32 +47,21 @@ const Chat: React.FC = () => {
 
   const loadUserDetails = async (userId: string) => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) return;
+      const { data: userData, error: userError } = await supabase
+        .from('auth.users')
+        .select('id, email')
+        .eq('id', userId)
+        .single();
 
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-user-details`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ userIds: [userId] }),
-        }
-      );
-
-      if (!response.ok) throw new Error('Failed to fetch user details');
+      if (userError) throw userError;
       
-      const { users } = await response.json();
-      if (users && users[0]) {
-        const user = users[0];
+      if (userData) {
         setSelectedUser({
-          id: user.id,
-          name: user.name || user.email,
-          email: user.email
+          id: userData.id,
+          name: userData.email,
+          email: userData.email
         });
-        loadMessages(user.id);
+        loadMessages(userData.id);
       }
     } catch (err) {
       console.error('Error loading user details:', err);
@@ -104,10 +93,10 @@ const Chat: React.FC = () => {
         ...chatMessages.map(msg => msg.receiver_id)
       ].filter(id => id !== user.id));
 
-      // Get user details
+      // Get user details from auth.users table
       const { data: users, error: usersError } = await supabase
-        .from('users')
-        .select('id, name, email')
+        .from('auth.users')
+        .select('id, email')
         .in('id', Array.from(userIds));
 
       if (usersError) throw usersError;
@@ -123,7 +112,9 @@ const Chat: React.FC = () => {
         ).length;
 
         return {
-          ...u,
+          id: u.id,
+          name: u.email,
+          email: u.email,
           last_message: lastMessage?.content,
           last_message_time: lastMessage?.created_at,
           unread_count: unreadCount
