@@ -155,6 +155,28 @@ const PropertyDetails: React.FC = () => {
     );
   };
 
+  const handleChatClick = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        navigate('/marketplace/auth', { state: { from: location.pathname } });
+        return;
+      }
+
+      // Navigate to chat page with property owner's ID
+      navigate('/marketplace/chat', { 
+        state: { 
+          receiverId: property?.owner_id,
+          propertyId: property?.id,
+          propertyName: property?.name
+        } 
+      });
+    } catch (err) {
+      console.error('Error handling chat:', err);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -437,11 +459,11 @@ const PropertyDetails: React.FC = () => {
         </div>
 
         {/* Floating Action Buttons */}
-        <div className="fixed bottom-24 left-0 right-0 p-4 bg-white/80 backdrop-blur-md border-t border-gray-200 z-10">
+        <div className="fixed bottom-2 left-0 right-0 p-4 bg-white/80 backdrop-blur-md border-t border-gray-200 z-10">
           <div className="max-w-7xl mx-auto flex flex-col sm:flex-row gap-4">
             <Button
               className="flex-1 bg-blue-600 hover:bg-blue-700"
-              onClick={() => navigate('/login')}
+              onClick={handleChatClick}
               icon={<MessageCircle size={20} />}
             >
               Chat dengan Pemilik
