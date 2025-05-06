@@ -48,21 +48,24 @@ const Chat: React.FC = () => {
   const loadUserDetails = async (userId: string) => {
     try {
       const { data: userData, error: userError } = await supabase
-        .from('auth.users')
-        .select('id, email')
+        .from('profiles')
+        .select('id, email, full_name')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
       if (userError) throw userError;
-      
-      if (userData) {
-        setSelectedUser({
-          id: userData.id,
-          name: userData.email,
-          email: userData.email
-        });
-        loadMessages(userData.id);
+
+      if (!userData) {
+        setError('User not found');
+        return;
       }
+      
+      setSelectedUser({
+        id: userData.id,
+        name: userData.full_name || userData.email || '',
+        email: userData.email || ''
+      });
+      loadMessages(userData.id);
     } catch (err) {
       console.error('Error loading user details:', err);
       setError('Failed to load user details');
@@ -93,18 +96,30 @@ const Chat: React.FC = () => {
         ...chatMessages.map(msg => msg.receiver_id)
       ].filter(id => id !== user.id));
 
-      // Get user details from auth.users table
-      const { data: users, error: usersError } = await supabase
-        .from('auth.users')
-        .select('id, email')
+      if (userIds.size === 0) {
+        setChats([]);
+        setIsLoading(false);
+        return;
+      }
+
+      // Get user details from profiles table
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, email, full_name')
         .in('id', Array.from(userIds));
 
-      if (usersError) throw usersError;
+      if (profilesError) throw profilesError;
+
+      if (!profiles || profiles.length === 0) {
+        setChats([]);
+        setIsLoading(false);
+        return;
+      }
 
       // Process chat list
-      const chatList = users.map(u => {
+      const chatList = profiles.map(profile => {
         const userMessages = chatMessages.filter(msg => 
-          msg.sender_id === u.id || msg.receiver_id === u.id
+          msg.sender_id === profile.id || msg.receiver_id === profile.id
         );
         const lastMessage = userMessages[0];
         const unreadCount = userMessages.filter(msg => 
@@ -112,9 +127,9 @@ const Chat: React.FC = () => {
         ).length;
 
         return {
-          id: u.id,
-          name: u.email,
-          email: u.email,
+          id: profile.id,
+          name: profile.full_name || profile.email || '',
+          email: profile.email || '',
           last_message: lastMessage?.content,
           last_message_time: lastMessage?.created_at,
           unread_count: unreadCount
@@ -142,7 +157,7 @@ const Chat: React.FC = () => {
         .order('created_at', { ascending: true });
 
       if (error) throw error;
-      setMessages(data);
+      setMessages(data || []);
 
       // Mark messages as read
       await supabase
@@ -184,6 +199,7 @@ const Chat: React.FC = () => {
 
       setNewMessage('');
       await loadMessages(selectedUser.id);
+      await loadChats(); // Refresh chat list to update last message
     } catch (err) {
       console.error('Error sending message:', err);
       setError('Failed to send message');
