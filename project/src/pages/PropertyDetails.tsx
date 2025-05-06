@@ -3,25 +3,23 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Property, RoomType } from '../types';
 import { formatCurrency } from '../utils/formatters';
 import { supabase } from '../lib/supabase';
-import FloatingNav from '../components/ui/FloatingNav';
 import {
-  Building2,
   MapPin,
-  Phone,
-  Mail,
   Users,
   Bath,
   Wifi,
   Car,
   Coffee,
+  Phone,
+  Mail,
   MessageCircle,
   Send,
   ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
   CheckCircle,
   Share,
   Heart,
-  ChevronLeft,
-  ChevronRight,
 } from 'lucide-react';
 import Button from '../components/ui/Button';
 
@@ -56,11 +54,14 @@ const PropertyDetails: React.FC = () => {
           .single(),
         supabase.from('room_types').select('*').eq('property_id', id),
       ]);
-      if (propertyData.error || !propertyData.data) throw propertyData.error || new Error('Properti tidak ditemukan');
+      if (propertyData.error || !propertyData.data) throw propertyData.error;
       if (roomTypesData.error) throw roomTypesData.error;
 
       setProperty(propertyData.data);
       setRoomTypes(roomTypesData.data || []);
+      if (roomTypesData.data && roomTypesData.data.length > 0) {
+        setSelectedRoomType(roomTypesData.data[0]); // Set default selected room type
+      }
     } catch (err) {
       console.error('Error loading property details:', err);
       setError('Gagal memuat detail properti');
@@ -137,7 +138,9 @@ const PropertyDetails: React.FC = () => {
       ...(property.common_amenities_photos || []),
       ...(property.parking_amenities_photos || []),
     ];
-    setActiveImageIndex((prev) => (prev === 0 ? allImages.length - 1 : prev - 1));
+    setActiveImageIndex((prev) =>
+      prev === 0 ? allImages.length - 1 : prev - 1
+    );
   };
 
   const handleNextImage = () => {
@@ -147,7 +150,9 @@ const PropertyDetails: React.FC = () => {
       ...(property.common_amenities_photos || []),
       ...(property.parking_amenities_photos || []),
     ];
-    setActiveImageIndex((prev) => (prev === allImages.length - 1 ? 0 : prev + 1));
+    setActiveImageIndex((prev) =>
+      prev === allImages.length - 1 ? 0 : prev + 1
+    );
   };
 
   if (isLoading) {
@@ -162,7 +167,12 @@ const PropertyDetails: React.FC = () => {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
         <h2 className="text-2xl font-bold text-gray-900 mb-4">{error || 'Properti tidak ditemukan'}</h2>
-        <Button onClick={() => navigate('/marketplace')}>Kembali ke Marketplace</Button>
+        <button
+          onClick={() => navigate('/marketplace')}
+          className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+        >
+          Kembali ke Marketplace
+        </button>
       </div>
     );
   }
@@ -175,7 +185,7 @@ const PropertyDetails: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24"> {/* Tambahkan padding bawah */}
+    <div className="min-h-screen bg-gray-50 pb-24">
       {/* Navigation Bar */}
       <div className="fixed top-0 left-0 right-0 bg-white/80 backdrop-blur-md z-50">
         <div className="max-w-7xl mx-auto px-4">
@@ -193,7 +203,9 @@ const PropertyDetails: React.FC = () => {
               </button>
               <button onClick={handleSaveProperty} className="p-2 rounded-full hover:bg-gray-100">
                 <Heart
-                  className={`h-5 w-5 ${isSaved ? 'text-red-500 fill-current' : 'text-gray-600'}`}
+                  className={`h-5 w-5 ${
+                    isSaved ? 'text-red-500 fill-current' : 'text-gray-600'
+                  }`}
                 />
               </button>
             </div>
@@ -205,8 +217,8 @@ const PropertyDetails: React.FC = () => {
         {/* Main Content */}
         <div className="max-w-7xl mx-auto px-4 py-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Left Column (Detail Properti) */}
-            <div className="space-y-8">
+            {/* Left Column */}
+            <div>
               {/* Image Gallery */}
               <div className="relative rounded-2xl overflow-hidden bg-gray-100">
                 {allImages.length > 0 ? (
@@ -214,9 +226,9 @@ const PropertyDetails: React.FC = () => {
                     <img
                       src={allImages[activeImageIndex]}
                       alt={`${property.name} - Gambar ${activeImageIndex + 1}`}
-                      className="w-full object-cover aspect-[16/9]" // Aspek rasio 16:9
+                      className="w-full object-cover aspect-[16/9]"
                     />
-                    {/* Image Navigation */}
+                    {/* Navigation Buttons */}
                     <div className="absolute inset-0 flex items-center justify-between p-4">
                       <button
                         onClick={handlePrevImage}
@@ -248,95 +260,158 @@ const PropertyDetails: React.FC = () => {
                   </>
                 ) : (
                   <div className="w-full h-[400px] flex items-center justify-center">
-                    <Building2 size={64} className="text-gray-400" />
+                    <span className="text-gray-400">Tidak ada gambar</span>
                   </div>
                 )}
               </div>
 
-              {/* Property Details */}
-              <div className="bg-white rounded-2xl p-6 shadow-sm">
-                <h1 className="text-2xl font-bold text-gray-900 mb-2">{property.name}</h1>
-                <div className="flex items-center text-gray-600 mb-4">
-                  <MapPin size={18} className="mr-2" />
-                  <p>{property.address}, {property.city}</p>
-                </div>
-                <p className="text-gray-600">{property.description}</p>
-              </div>
-
-              {/* Room Types */}
-              <div className="space-y-4">
-                <h2 className="text-xl font-bold text-gray-900">Tipe Kamar Tersedia</h2>
-                {roomTypes.map((roomType) => (
-                  <div
-                    key={roomType.id}
-                    className={`bg-white rounded-2xl p-6 shadow-sm ${
-                      selectedRoomType?.id === roomType.id ? 'ring-2 ring-blue-500' : ''
-                    }`}
-                    onClick={() => setSelectedRoomType(roomType)}
-                  >
-                    <div className="flex justify-between items-start mb-4">
-                      <div>
-                        <h3 className="text-lg font-semibold">{roomType.name}</h3>
-                        <p className="text-gray-600">{roomType.description}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-2xl font-bold text-blue-600">
-                          {formatCurrency(roomType.price)}
-                          <span className="text-sm font-normal text-gray-500">/bulan</span>
-                        </p>
-                        {roomType.enable_daily_price && (
-                          <p className="text-sm text-gray-600">
-                            {formatCurrency(roomType.daily_price || 0)}/hari
-                          </p>
-                        )}
-                      </div>
+              {/* Cards Informasi Kost */}
+              <div className="space-y-6 mt-6">
+                {/* Card 1: Identitas Kost */}
+                <div className="bg-white rounded-2xl p-6 shadow-sm">
+                  <h1 className="text-2xl font-bold text-gray-900 mb-4">{property.name}</h1>
+                  <div className="text-gray-600 mb-4">
+                    <p className="font-semibold text-gray-800">
+                      {selectedRoomType?.name || roomTypes[0]?.name || 'Kamar'}
+                    </p>
+                    <p className="text-sm">{property.address}, {property.city}</p>
+                  </div>
+                  <div className="flex justify-between text-sm text-gray-600 border-t pt-3 mt-3">
+                    <div className="flex items-center">
+                      <Users size={16} className="mr-2 text-gray-500" />
+                      Maksimal {selectedRoomType?.max_occupancy || roomTypes[0]?.max_occupancy || 1} orang
                     </div>
-
-                    <div className="mt-4">
-                      <h4 className="font-medium text-gray-800 text-sm uppercase tracking-wide mb-2">
-                        Fasilitas
-                      </h4>
-                      <div className="flex flex-wrap gap-2 text-xs text-gray-600">
-                        {[
-                          ...(roomType.room_facilities || []),
-                          ...(roomType.bathroom_facilities || [])
-                        ].map((facility, index) => (
-                          <span key={index} className="flex items-center gap-1">
-                            <CheckCircle size={12} className="text-green-500" />
-                            {facility}
-                          </span>
-                        ))}
-                      </div>
+                    <div className="flex items-center">
+                      <span
+                        className={`inline-block w-4 h-4 rounded-full mr-2 ${
+                          selectedRoomType?.gender_renter === 'Campur'
+                            ? 'bg-blue-200'
+                            : selectedRoomType?.gender_renter === 'Putra'
+                            ? 'bg-indigo-200'
+                            : 'bg-pink-200'
+                        }`}
+                      ></span>
+                      {selectedRoomType?.gender_renter || roomTypes[0]?.gender_renter || 'Campur'}
                     </div>
                   </div>
-                ))}
-              </div>
+                </div>
 
-              {/* Common Amenities */}
-              <div className="bg-white rounded-2xl p-6 shadow-sm">
-                <h2 className="text-xl font-bold text-gray-900 mb-4">Fasilitas Umum</h2>
-                <div className="flex flex-wrap gap-2 text-xs text-gray-600">
-                  {property.common_amenities?.map((amenity, index) => (
-                    <span key={index} className="flex items-center gap-1">
-                      <CheckCircle size={12} className="text-green-500" />
-                      {amenity}
-                    </span>
-                  ))}
+                {/* Card 2: Harga Sewa */}
+                {roomTypes.length > 0 && (
+                  <div className="bg-white rounded-2xl p-6 shadow-sm">
+                    <h2 className="text-lg font-semibold text-gray-800 mb-3">Harga Sewa</h2>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span>Bulanan</span>
+                        <span className="font-medium text-blue-600">
+                          {formatCurrency(selectedRoomType?.price || roomTypes[0]?.price || 0)}
+                        </span>
+                      </div>
+                      {selectedRoomType?.enable_daily_price && (
+                        <div className="flex justify-between text-sm text-gray-600">
+                          <span>Harian</span>
+                          <span>{formatCurrency(selectedRoomType.daily_price || 0)}</span>
+                        </div>
+                      )}
+                      {selectedRoomType?.enable_weekly_price && (
+                        <div className="flex justify-between text-sm text-gray-600">
+                          <span>Mingguan</span>
+                          <span>{formatCurrency(selectedRoomType.weekly_price || 0)}</span>
+                        </div>
+                      )}
+                      {selectedRoomType?.enable_yearly_price && (
+                        <div className="flex justify-between text-sm text-gray-600">
+                          <span>Tahunan</span>
+                          <span>{formatCurrency(selectedRoomType.yearly_price || 0)}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Card 3: Deskripsi Kost */}
+                <div className="bg-white rounded-2xl p-6 shadow-sm">
+                  <h2 className="text-lg font-semibold text-gray-800 mb-3">Deskripsi Kost</h2>
+                  <p className="text-gray-600 leading-relaxed">
+                    {selectedRoomType?.description ||
+                      roomTypes[0]?.description ||
+                      'Tidak ada deskripsi tersedia.'}
+                  </p>
                 </div>
               </div>
             </div>
 
-            {/* Right Column (Info Tambahan) */}
+            {/* Right Column */}
             <div className="space-y-6">
+              {/* Room Facilities */}
+              {selectedRoomType?.room_facilities?.length > 0 && (
+                <div className="bg-white rounded-2xl p-6 shadow-sm">
+                  <h2 className="text-xl font-bold text-gray-900 mb-4">Fasilitas Kamar</h2>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedRoomType.room_facilities.map((facility, index) => (
+                      <div key={index} className="flex items-center space-x-2 bg-gray-50 p-2 rounded-lg">
+                        <CheckCircle size={16} className="text-green-500" />
+                        <span className="text-gray-700">{facility}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Bathroom Facilities */}
+              {selectedRoomType?.bathroom_facilities?.length > 0 && (
+                <div className="bg-white rounded-2xl p-6 shadow-sm">
+                  <h2 className="text-xl font-bold text-gray-900 mb-4">Fasilitas Kamar Mandi</h2>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedRoomType.bathroom_facilities.map((facility, index) => (
+                      <div key={index} className="flex items-center space-x-2 bg-gray-50 p-2 rounded-lg">
+                        <CheckCircle size={16} className="text-green-500" />
+                        <span className="text-gray-700">{facility}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Common Amenities */}
+              {property.common_amenities?.length > 0 && (
+                <div className="bg-white rounded-2xl p-6 shadow-sm">
+                  <h2 className="text-xl font-bold text-gray-900 mb-4">Fasilitas Umum</h2>
+                  <div className="flex flex-wrap gap-2">
+                    {property.common_amenities.map((amenity, index) => (
+                      <div key={index} className="flex items-center space-x-2 bg-gray-50 p-2 rounded-lg">
+                        <CheckCircle size={16} className="text-green-500" />
+                        <span className="text-gray-700">{amenity}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Parking Amenities */}
+              {property.parking_amenities?.length > 0 && (
+                <div className="bg-white rounded-2xl p-6 shadow-sm">
+                  <h2 className="text-xl font-bold text-gray-900 mb-4">Fasilitas Parkir</h2>
+                  <div className="flex flex-wrap gap-2">
+                    {property.parking_amenities.map((amenity, index) => (
+                      <div key={index} className="flex items-center space-x-2 bg-gray-50 p-2 rounded-lg">
+                        <CheckCircle size={16} className="text-green-500" />
+                        <span className="text-gray-700">{amenity}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* House Rules */}
-              {property.rules && property.rules.length > 0 && (
+              {property.rules?.length > 0 && (
                 <div className="bg-white rounded-2xl p-6 shadow-sm">
                   <h2 className="text-xl font-bold text-gray-900 mb-4">Peraturan Kost</h2>
-                  <div className="space-y-2 text-sm text-gray-600">
+                  <div className="flex flex-wrap gap-2">
                     {property.rules.map((rule, index) => (
-                      <div key={index} className="flex items-center">
-                        <CheckCircle size={14} className="text-green-500 mr-2" />
-                        {rule}
+                      <div key={index} className="flex items-center space-x-2 bg-gray-50 p-2 rounded-lg">
+                        <CheckCircle size={16} className="text-green-500" />
+                        <span className="text-gray-700">{rule}</span>
                       </div>
                     ))}
                   </div>
@@ -362,8 +437,8 @@ const PropertyDetails: React.FC = () => {
         </div>
 
         {/* Floating Action Buttons */}
-        <div className="fixed bottom-24 left-0 right-0 p-4 bg-white/80 backdrop-blur-md border-t border-gray-200">
-          <div className="max-w-7xl mx-auto flex gap-4">
+        <div className="fixed bottom-24 left-0 right-0 p-4 bg-white/80 backdrop-blur-md border-t border-gray-200 z-10">
+          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row gap-4">
             <Button
               className="flex-1 bg-blue-600 hover:bg-blue-700"
               onClick={() => navigate('/login')}
@@ -381,8 +456,6 @@ const PropertyDetails: React.FC = () => {
             </Button>
           </div>
         </div>
-
-        <FloatingNav />
       </div>
     </div>
   );
